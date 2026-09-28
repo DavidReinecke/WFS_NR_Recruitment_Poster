@@ -45,6 +45,10 @@
   .row.end{justify-content:flex-end}
   .hint{color:var(--muted);font-size:12.5px}
   .hint a{color:var(--orange-l)}
+  .units{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+  @media(max-width:560px){.units{grid-template-columns:1fr}}
+  .units label{display:flex;align-items:center;gap:8px;margin:0;font-size:14px;color:var(--text);cursor:pointer}
+  .units input{width:17px;height:17px;accent-color:var(--orange);margin:0}
   .counter{font-size:12px;color:var(--muted);text-align:right;margin-top:3px}
   .lib-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:420px;overflow:auto;padding-right:2px}
   .entry{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#101010}
@@ -77,8 +81,9 @@
   <div id="formCol">
     <section class="card">
       <h2>Position</h2>
-      <div class="f"><label for="unitName">Unit Name (shown under the flyer heading)</label>
-        <select id="unitName"><option value="">Select a unit...</option></select></div>
+      <div class="f"><label>Unit(s) shown under the flyer heading</label>
+        <div id="unitBox" class="units"></div>
+        <div class="hint" style="margin-top:6px"><a href="#" id="unitAll">Select all</a> &middot; <a href="#" id="unitNone">Clear</a></div></div>
       <div class="f"><label for="posTitle">Position Title</label><input type="text" id="posTitle" autocomplete="off"></div>
       <div class="grid2">
         <div class="f"><label for="opmTitle">OPM Position Title</label><input type="text" id="opmTitle" autocomplete="off"></div>
@@ -686,10 +691,15 @@ function draw(R, d){
   // banner text
   let s1 = 21; const maxHdr = 588 - 120 - 14;
   while (tw(HEADER_LINE1, s1, 'bold') > maxHdr && s1 > 10) s1 -= 0.25;
-  const unitTxt = d.unit ? 'Unit: ' + d.unit : '';
-  let s2 = 15;
-  while (unitTxt && tw(unitTxt, s2, 'normal') > maxHdr && s2 > 8) s2 -= 0.5;
-  if (unitTxt){ R.text(HEADER_LINE1, 120, 63, s1, 'bold', BLACK); R.text(unitTxt, 120, 83, s2, 'normal', BLACK); }
+  const unitTxt = d.units.length ? (d.units.length > 1 ? 'Units: ' : 'Unit: ') + d.units.join(', ') : '';
+  const urun = [{ t: unitTxt, style: 'normal', color: BLACK }];
+  let s2 = 15, ulines = [];
+  if (unitTxt){
+    while (true){ ulines = wrapRuns(urun, maxHdr, s2); if (ulines.length === 1 || s2 <= 11) break; s2 -= 0.5; }
+    if (ulines.length > 1){ s2 = 11; while (true){ ulines = wrapRuns(urun, maxHdr, s2); if (ulines.length <= 2 || s2 <= 8) break; s2 -= 0.5; } }
+  }
+  if (ulines.length === 1){ R.text(HEADER_LINE1, 120, 63, s1, 'bold', BLACK); drawLine(R, ulines[0], 120, 83, s2, 'left', 0); }
+  else if (ulines.length > 1){ R.text(HEADER_LINE1, 120, 58, s1, 'bold', BLACK); ulines.forEach((ln, i) => drawLine(R, ln, 120, 75 + i * s2 * 1.2, s2, 'left', 0)); }
   else R.text(HEADER_LINE1, 120, 71, s1, 'bold', BLACK);
 
   // heading
@@ -770,7 +780,7 @@ function pdfR(doc){
 }
 
 /* ---------- form state ---------- */
-const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about','cName','cTitle','cPhone','cEmail','unitName'];
+const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about','cName','cTitle','cPhone','cEmail'];
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'wfs-flyer-draft-v1';
 
@@ -780,18 +790,25 @@ const SAMPLE = {
   dutyLoc: 'Billings OR Miles City, Montana', annNum: 'FADHA-26-12861490-CMP', usajobsUrl: 'https://www.usajobs.gov/',
   applyBy: '2026-01-21', reloc: true, about: SAMPLE_ABOUT,
   cName: 'Aaron Thompson', cTitle: 'State Fire Management Officer', cPhone: '(307) 330-6743', cEmail: 'althompson@blm.gov',
-  unitName: ''
+  units: []
 };
-(function fillUnits(){ const sel = document.getElementById('unitName'); UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); }); })();
-function setForm(v){ IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc; }
-function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; return o; }
+(function buildUnitBoxes(){
+  const box = document.getElementById('unitBox');
+  UNITS.forEach((u, i) => { const l = document.createElement('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = u; cb.id = 'unit' + i; l.htmlFor = cb.id; l.append(cb, document.createTextNode(u)); box.appendChild(l); });
+})();
+function setForm(v){
+  IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc;
+  const u = Array.isArray(v.units) ? v.units : (v.unitName ? [v.unitName] : []);   // unitName = older saved drafts
+  document.querySelectorAll('#unitBox input').forEach(cb => { cb.checked = u.includes(cb.value); });
+}
+function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; o.units = [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value); return o; }
 function getData(){
   const r = rawForm(), c = k => clean(r[k]).replace(/\s*\n\s*/g, ' ').trim();
   let url = (r.usajobsUrl || '').trim(); if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   return {
     posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
     url, applyBy: fmtDate(r.applyBy), reloc: r.reloc, about: clean(r.about).trim(),
-    cName: c('cName'), cTitle: c('cTitle'), cPhone: c('cPhone'), cEmail: c('cEmail'), unit: c('unitName')
+    cName: c('cName'), cTitle: c('cTitle'), cPhone: c('cPhone'), cEmail: c('cEmail'), units: UNITS.filter(u => r.units.includes(u))
   };
 }
 function saveDraft(){ try { localStorage.setItem(DRAFT_KEY, JSON.stringify(rawForm())); } catch (e) {} }
@@ -893,7 +910,7 @@ function renderLib(){
 }
 function buildSuggestion(){
   const name = $('entryName').value.trim(), text = $('about').value.trim();
-  const d = getData(), ctx = [d.posTitle, d.unit].filter(Boolean).join(' - ');
+  const d = getData(), ctx = [d.posTitle, d.units.join(', ')].filter(Boolean).join(' - ');
   const subject = 'Flyer library suggestion: ' + name;
   const head = 'Suggested "About the Position" entry for the shared flyer library.\r\n\r\nEntry name: ' + name
     + (ctx ? '\r\nWritten for flyer: ' + ctx : '') + '\r\n\r\nText:\r\n';
@@ -966,7 +983,10 @@ $('importFile').addEventListener('change', async ev => {
 /* ---------- wire up ---------- */
 IDS.forEach(id => $(id).addEventListener('input', onEdit));
 $('reloc').addEventListener('change', onEdit);
-$('unitName').addEventListener('change', onEdit);
+$('unitBox').addEventListener('change', onEdit);
+const setAllUnits = on => { document.querySelectorAll('#unitBox input').forEach(cb => { cb.checked = on; }); onEdit(); };
+$('unitAll').addEventListener('click', e => { e.preventDefault(); setAllUnits(true); });
+$('unitNone').addEventListener('click', e => { e.preventDefault(); setAllUnits(false); });
 $('btnPdf').addEventListener('click', downloadPdf);
 $('btnPdfTop').addEventListener('click', downloadPdf);
 $('btnSample').addEventListener('click', () => { setForm(SAMPLE); onEdit(); toast('Sample values loaded'); });
