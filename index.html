@@ -11,6 +11,7 @@
     --danger:#ff6b5e; --ok:#7fd48a;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   header.top{position:sticky;top:0;z-index:20;background:#000;border-bottom:3px solid var(--orange);display:flex;align-items:center;gap:14px;padding:10px 20px}
   header.top img{height:46px;width:auto}
@@ -26,7 +27,7 @@
   @media(max-width:560px){.grid2{grid-template-columns:1fr}}
   label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
   .f{margin-bottom:12px}
-  input[type=text],input[type=url],input[type=email],input[type=tel],input[type=date],input[type=search],textarea{
+  select,input[type=text],input[type=url],input[type=email],input[type=tel],input[type=date],input[type=search],textarea{
     width:100%;background:#0d0d0d;color:var(--text);border:1px solid #363636;border-radius:7px;padding:9px 10px;font:inherit;color-scheme:dark}
   textarea{min-height:190px;resize:vertical;line-height:1.5}
   input:focus,textarea:focus,button:focus-visible,select:focus{outline:2px solid var(--orange);outline-offset:1px;border-color:var(--orange)}
@@ -75,6 +76,8 @@
   <div id="formCol">
     <section class="card">
       <h2>Position</h2>
+      <div class="f"><label for="unitName">Unit Name (shown under the flyer heading)</label>
+        <select id="unitName"><option value="">Select a unit...</option></select></div>
       <div class="f"><label for="posTitle">Position Title</label><input type="text" id="posTitle" autocomplete="off"></div>
       <div class="grid2">
         <div class="f"><label for="opmTitle">OPM Position Title</label><input type="text" id="opmTitle" autocomplete="off"></div>
@@ -110,17 +113,25 @@
       </div>
 
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0 12px">
+      <div class="f"><input type="search" id="libSearch" placeholder="Search shared and saved entries"></div>
+
       <div class="row" style="justify-content:space-between">
-        <strong style="font-size:14px">Library <span id="libCount" class="meta" style="color:#777;font-weight:400"></span></strong>
+        <strong style="font-size:14px">Shared library <span id="sharedCount" style="color:#777;font-weight:400"></span></strong>
+        <button class="small" id="btnShareFile" title="Builds a library.json from the shared entries plus your saved ones">Download combined library.json</button>
+      </div>
+      <p class="hint" id="sharedNote" style="margin:6px 0 0"></p>
+      <div class="lib-list" id="sharedList" style="max-height:300px"></div>
+
+      <div class="row" style="justify-content:space-between;margin-top:18px">
+        <strong style="font-size:14px">My library <span id="libCount" style="color:#777;font-weight:400"></span></strong>
         <div class="row">
           <button class="small" id="btnExport">Export JSON</button>
           <button class="small" id="btnImport">Import JSON</button>
           <input type="file" id="importFile" accept="application/json,.json" hidden>
         </div>
       </div>
-      <div class="f" style="margin-top:10px"><input type="search" id="libSearch" placeholder="Search saved entries"></div>
       <div class="lib-list" id="libList"></div>
-      <p class="hint" style="margin:10px 0 0">The library is stored in this browser only. Use Export JSON to back it up or move it to another computer.</p>
+      <p class="hint" style="margin:10px 0 0">Shared entries come from <code>library.json</code> in the site's repo and are read-only here. My library is stored in this browser only. To share one of your entries, click Download combined library.json and upload that file to the repo, replacing the old one.</p>
     </section>
 
     <section class="card">
@@ -134,11 +145,6 @@
     </section>
 
     <section class="card">
-      <details>
-        <summary>Header text (top banner)</summary>
-        <div class="f"><label for="hdr1">Line 1</label><input type="text" id="hdr1" autocomplete="off"></div>
-        <div class="f"><label for="hdr2">Line 2</label><input type="text" id="hdr2" autocomplete="off"></div>
-      </details>
       <div class="row">
         <button id="btnSample">Load sample values</button>
         <button id="btnClear" class="danger">Clear all fields</button>
@@ -567,6 +573,9 @@ const { jsPDF } = window.jspdf;
 /* ---------- constants ---------- */
 const ORANGE = '#F58220', ORANGE_LT = '#FFA04D', WHITE = '#FFFFFF', BLACK = '#000000';
 const PAGE_W = 612, PAGE_H = 792;
+const HEADER_LINE1 = 'USWFS Northern Rockies Geographic Area';
+// Edit this list to add, remove or rename units. Order here is the order in the dropdown.
+const UNITS = ['Geographic Area Office', 'Yellowstone River', 'Triple Divide', 'Northern Plains', 'Bitterroot Range', 'Tongue River', 'Missouri Breaks'];
 const COL_X = 45, COL_W = 360;          // left text column
 const BODY_BOTTOM = 642;                // last allowed baseline for body text
 const HELV = 'Helvetica, Arial, "Liberation Sans", sans-serif';
@@ -668,12 +677,11 @@ function draw(R, d){
 
   // banner text
   let s1 = 21; const maxHdr = 588 - 120 - 14;
-  while (d.hdr1 && tw(d.hdr1, s1, 'bold') > maxHdr && s1 > 10) s1 -= 0.5;
-  let s2 = 13.5;
-  while (d.hdr2 && tw(d.hdr2, s2, 'normal') > maxHdr && s2 > 8) s2 -= 0.5;
-  if (d.hdr1 && d.hdr2){ R.text(d.hdr1, 120, 63, s1, 'bold', BLACK); R.text(d.hdr2, 120, 82, s2, 'normal', BLACK); }
-  else if (d.hdr1) R.text(d.hdr1, 120, 71, s1, 'bold', BLACK);
-  else if (d.hdr2) R.text(d.hdr2, 120, 70, s2, 'normal', BLACK);
+  while (tw(HEADER_LINE1, s1, 'bold') > maxHdr && s1 > 10) s1 -= 0.25;
+  let s2 = 15;
+  while (d.unit && tw(d.unit, s2, 'normal') > maxHdr && s2 > 8) s2 -= 0.5;
+  if (d.unit){ R.text(HEADER_LINE1, 120, 63, s1, 'bold', BLACK); R.text(d.unit, 120, 83, s2, 'normal', BLACK); }
+  else R.text(HEADER_LINE1, 120, 71, s1, 'bold', BLACK);
 
   // heading
   let ts = 40; while (tw('JOB ANNOUNCEMENT', ts, 'bold') > COL_W && ts > 20) ts -= 0.5;
@@ -753,7 +761,7 @@ function pdfR(doc){
 }
 
 /* ---------- form state ---------- */
-const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about','cName','cTitle','cPhone','cEmail','hdr1','hdr2'];
+const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about','cName','cTitle','cPhone','cEmail','unitName'];
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'wfs-flyer-draft-v1';
 
@@ -763,8 +771,9 @@ const SAMPLE = {
   dutyLoc: 'Billings OR Miles City, Montana', annNum: 'FADHA-26-12861490-CMP', usajobsUrl: 'https://www.usajobs.gov/',
   applyBy: '2026-01-21', reloc: true, about: SAMPLE_ABOUT,
   cName: 'Aaron Thompson', cTitle: 'State Fire Management Officer', cPhone: '(307) 330-6743', cEmail: 'althompson@blm.gov',
-  hdr1: 'Montana/Dakotas State Office', hdr2: 'Office of Fire & Aviation Management'
+  unitName: ''
 };
+(function fillUnits(){ const sel = document.getElementById('unitName'); UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); }); })();
 function setForm(v){ IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc; }
 function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; return o; }
 function getData(){
@@ -773,7 +782,7 @@ function getData(){
   return {
     posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
     url, applyBy: fmtDate(r.applyBy), reloc: r.reloc, about: clean(r.about).trim(),
-    cName: c('cName'), cTitle: c('cTitle'), cPhone: c('cPhone'), cEmail: c('cEmail'), hdr1: c('hdr1'), hdr2: c('hdr2')
+    cName: c('cName'), cTitle: c('cTitle'), cPhone: c('cPhone'), cEmail: c('cEmail'), unit: c('unitName')
   };
 }
 function saveDraft(){ try { localStorage.setItem(DRAFT_KEY, JSON.stringify(rawForm())); } catch (e) {} }
@@ -808,44 +817,70 @@ function downloadPdf(){
 let tt; function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2600); }
 
 /* ---------- About the Position library ---------- */
-const LIB_KEY = 'wfs-about-library-v1', SEED_KEY = 'wfs-about-library-seeded';
+const LIB_KEY = 'wfs-about-library-v1';
 let lib = [], selectedId = null, memoryOnly = false;
 const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function readLib(){ try { const v = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); return Array.isArray(v) ? v.filter(e => e && e.id && typeof e.text === 'string') : []; } catch (e) { return []; } }
 function writeLib(){ try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); return true; } catch (e) { if (!memoryOnly){ memoryOnly = true; toast('Browser storage is blocked, so the library will not persist. Use Export JSON to keep it.'); } return false; } }
-function initLib(){
-  lib = readLib();
-  let seeded = false; try { seeded = !!localStorage.getItem(SEED_KEY); } catch (e) {}
-  if (!seeded && !lib.length){
-    lib.push({ id: uid(), name: 'District FMO - Eastern MT/Dakotas (from 2026 flyer)', text: SAMPLE_ABOUT, updated: Date.now() });
-    writeLib(); try { localStorage.setItem(SEED_KEY, '1'); } catch (e) {}
-  }
-}
+function initLib(){ lib = readLib(); }
 function selEntry(){ return lib.find(e => e.id === selectedId) || null; }
 function updateAboutMeta(){
   const n = $('about').value.length; $('aboutCount').textContent = n + ' characters';
   const e = selEntry(); $('dirty').hidden = !(e && e.text !== $('about').value);
 }
+let shared = [], sharedState = 'loading';
+async function loadShared(){
+  if (!/^https?:$/.test(location.protocol)){ sharedState = 'offline'; renderLib(); return; }
+  try {
+    const r = await fetch('library.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(), arr = Array.isArray(j) ? j : j.entries;
+    if (!Array.isArray(arr)) throw new Error('format');
+    shared = arr.filter(e => e && typeof e.text === 'string' && typeof e.name === 'string')
+                .map(e => ({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }));
+    sharedState = 'ok';
+  } catch (e) { sharedState = 'error'; }
+  renderLib();
+}
+function entryCard(e, isShared){
+  const box = document.createElement('div'); box.className = 'entry' + (!isShared && e.id === selectedId ? ' sel' : '');
+  const h = document.createElement('h3'); h.textContent = e.name;
+  if (e.updated){ const m = document.createElement('span'); m.className = 'meta'; m.textContent = new Date(e.updated).toLocaleDateString(); h.appendChild(m); }
+  if (!isShared && e.id === selectedId){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'selected'; h.appendChild(b); }
+  const p = document.createElement('p'); p.textContent = e.text;
+  const row = document.createElement('div'); row.className = 'row';
+  const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'small ' + cls; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
+  mk('Use', '', () => { selectedId = isShared ? null : e.id; $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast('Loaded into the flyer'); });
+  if (isShared){
+    mk('Copy to my library', '', () => { lib.push({ id: uid(), name: e.name, text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Copied to My library'); });
+  } else {
+    mk('Duplicate', '', () => { lib.push({ id: uid(), name: e.name + ' (copy)', text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Entry duplicated'); });
+    mk('Delete', 'danger', () => { if (!confirm(`Delete "${e.name}" from your library?`)) return; lib = lib.filter(x => x.id !== e.id); if (selectedId === e.id) selectedId = null; writeLib(); renderLib(); updateAboutMeta(); });
+  }
+  box.append(h, p, row); return box;
+}
+function fillList(el, items, isShared, emptyMsg){
+  el.textContent = '';
+  if (!items.length){ const p = document.createElement('p'); p.className = 'hint'; p.textContent = emptyMsg; el.appendChild(p); return; }
+  items.forEach(e => el.appendChild(entryCard(e, isShared)));
+}
 function renderLib(){
   const q = $('libSearch').value.trim().toLowerCase();
-  const list = $('libList'); list.textContent = '';
-  const items = lib.filter(e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q)).sort((a, b) => b.updated - a.updated);
+  const match = e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q);
   $('libCount').textContent = `(${lib.length} saved)`;
+  $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.length})` : '';
   $('btnUpdate').disabled = !selEntry();
-  if (!items.length){ const p = document.createElement('p'); p.className = 'hint'; p.textContent = lib.length ? 'No entries match your search.' : 'No saved entries yet.'; list.appendChild(p); return; }
-  for (const e of items){
-    const box = document.createElement('div'); box.className = 'entry' + (e.id === selectedId ? ' sel' : '');
-    const h = document.createElement('h3'); h.textContent = e.name;
-    const m = document.createElement('span'); m.className = 'meta'; m.textContent = new Date(e.updated).toLocaleDateString(); h.appendChild(m);
-    if (e.id === selectedId){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'selected'; h.appendChild(b); }
-    const p = document.createElement('p'); p.textContent = e.text;
-    const row = document.createElement('div'); row.className = 'row';
-    const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'small ' + cls; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
-    mk('Use', '', () => { selectedId = e.id; $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast('Loaded into the flyer'); });
-    mk('Duplicate', '', () => { const c = { id: uid(), name: e.name + ' (copy)', text: e.text, updated: Date.now() }; lib.push(c); writeLib(); renderLib(); toast('Entry duplicated'); });
-    mk('Delete', 'danger', () => { if (!confirm(`Delete "${e.name}" from the library?`)) return; lib = lib.filter(x => x.id !== e.id); if (selectedId === e.id) selectedId = null; writeLib(); renderLib(); updateAboutMeta(); });
-    box.append(h, p, row); list.appendChild(box);
-  }
+  const notes = {
+    loading: 'Loading shared library...',
+    offline: 'The shared library loads only when this page is opened from its web address, not from a file on your computer.',
+    error: 'Could not load library.json. Make sure it sits in the same folder as index.html in the repo.',
+    ok: ''
+  };
+  $('sharedNote').textContent = notes[sharedState];
+  const sItems = shared.filter(match).sort((a, b) => a.name.localeCompare(b.name));
+  fillList($('sharedList'), sItems, true, sharedState === 'ok' ? (shared.length ? 'No shared entries match your search.' : 'The shared library is empty.') : '');
+  const mItems = lib.filter(match).sort((a, b) => b.updated - a.updated);
+  fillList($('libList'), mItems, false, lib.length ? 'No entries match your search.' : 'No saved entries yet.');
 }
 $('btnSaveNew').addEventListener('click', () => {
   const name = $('entryName').value.trim(), text = $('about').value.trim();
@@ -860,9 +895,15 @@ $('btnUpdate').addEventListener('click', () => {
   e.text = $('about').value; e.updated = Date.now(); writeLib(); renderLib(); updateAboutMeta(); toast('Entry updated');
 });
 $('libSearch').addEventListener('input', renderLib);
-$('btnExport').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify({ type: 'wfs-about-library', version: 1, entries: lib }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'about-the-position-library.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+function downloadJson(name, entries){
+  const blob = new Blob([JSON.stringify({ type: 'wfs-about-library', version: 1, entries }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('btnExport').addEventListener('click', () => downloadJson('about-the-position-library.json', lib));
+$('btnShareFile').addEventListener('click', () => {
+  const all = [...shared];
+  lib.forEach(e => { if (!all.some(x => x.id === e.id || (x.name === e.name && x.text === e.text))) all.push(e); });
+  downloadJson('library.json', all); toast('library.json downloaded - upload it to the repo to publish');
 });
 $('btnImport').addEventListener('click', () => $('importFile').click());
 $('importFile').addEventListener('change', async ev => {
@@ -885,14 +926,15 @@ $('importFile').addEventListener('change', async ev => {
 /* ---------- wire up ---------- */
 IDS.forEach(id => $(id).addEventListener('input', onEdit));
 $('reloc').addEventListener('change', onEdit);
+$('unitName').addEventListener('change', onEdit);
 $('btnPdf').addEventListener('click', downloadPdf);
 $('btnPdfTop').addEventListener('click', downloadPdf);
 $('btnSample').addEventListener('click', () => { setForm(SAMPLE); onEdit(); toast('Sample values loaded'); });
-$('btnClear').addEventListener('click', () => { if (!confirm('Clear every field on the flyer? Your saved library is not affected.')) return; setForm({ hdr1: SAMPLE.hdr1, hdr2: SAMPLE.hdr2 }); selectedId = null; renderLib(); onEdit(); });
+$('btnClear').addEventListener('click', () => { if (!confirm('Clear every field on the flyer? Your saved library is not affected.')) return; setForm({}); selectedId = null; renderLib(); onEdit(); });
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
 
 $('hdrLogo').src = ASSETS.logo;
-initLib(); setForm(loadDraft() || SAMPLE); renderLib(); updateAboutMeta(); render();
+initLib(); setForm(loadDraft() || SAMPLE); renderLib(); updateAboutMeta(); render(); loadShared();
 Promise.all([ASSETS.logo, ...ASSETS.right, ...ASSETS.bottom].map(loadImg)).then(render);
 </script>
 </body>
