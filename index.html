@@ -44,6 +44,7 @@
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .row.end{justify-content:flex-end}
   .hint{color:var(--muted);font-size:12.5px}
+  .hint a{color:var(--orange-l)}
   .counter{font-size:12px;color:var(--muted);text-align:right;margin-top:3px}
   .lib-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:420px;overflow:auto;padding-right:2px}
   .entry{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#101010}
@@ -111,6 +112,10 @@
         <button id="btnUpdate" disabled>Update selected entry</button>
         <span id="dirty" class="badge" hidden>edited since loading</span>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnSuggest">Suggest for shared library</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0">Emails this entry to <span id="suggestName"></span> for approval. Nothing is published until it is added to the shared library. <a href="#" id="linkCopySuggest">No email program? Copy it as text instead.</a></p>
 
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0 12px">
       <div class="f"><input type="search" id="libSearch" placeholder="Search shared and saved entries"></div>
@@ -131,7 +136,7 @@
         </div>
       </div>
       <div class="lib-list" id="libList"></div>
-      <p class="hint" style="margin:10px 0 0">Shared entries come from <code>library.json</code> in the site's repo and are read-only here. My library is stored in this browser only. To share one of your entries, click Download combined library.json and upload that file to the repo, replacing the old one.</p>
+      <p class="hint" style="margin:10px 0 0">Shared entries are read-only here and are managed by the library owner. My library is stored in this browser only. To propose one of your entries for everyone, use Suggest for shared library. Owner: after approving an entry, save it to My library, click Download combined library.json, and upload that file to the repo, replacing the old one.</p>
     </section>
 
     <section class="card">
@@ -574,6 +579,9 @@ const { jsPDF } = window.jspdf;
 const ORANGE = '#F58220', ORANGE_LT = '#FFA04D', WHITE = '#FFFFFF', BLACK = '#000000';
 const PAGE_W = 612, PAGE_H = 792;
 const HEADER_LINE1 = 'USWFS Northern Rockies Geographic Area';
+// Approver for shared-library suggestions (suggestions are emailed here).
+const SUGGEST_EMAIL = 'dreinecke@blm.gov', SUGGEST_NAME = 'David Reinecke';
+const MAILTO_LIMIT = 1800;   // many mail programs (Outlook) truncate longer mailto links
 // Edit this list to add, remove or rename units. Order here is the order in the dropdown.
 const UNITS = ['Geographic Area Office', 'Yellowstone River', 'Triple Divide', 'Northern Plains', 'Bitterroot Range', 'Tongue River', 'Missouri Breaks'];
 const COL_X = 45, COL_W = 360;          // left text column
@@ -678,9 +686,10 @@ function draw(R, d){
   // banner text
   let s1 = 21; const maxHdr = 588 - 120 - 14;
   while (tw(HEADER_LINE1, s1, 'bold') > maxHdr && s1 > 10) s1 -= 0.25;
+  const unitTxt = d.unit ? 'Unit: ' + d.unit : '';
   let s2 = 15;
-  while (d.unit && tw(d.unit, s2, 'normal') > maxHdr && s2 > 8) s2 -= 0.5;
-  if (d.unit){ R.text(HEADER_LINE1, 120, 63, s1, 'bold', BLACK); R.text(d.unit, 120, 83, s2, 'normal', BLACK); }
+  while (unitTxt && tw(unitTxt, s2, 'normal') > maxHdr && s2 > 8) s2 -= 0.5;
+  if (unitTxt){ R.text(HEADER_LINE1, 120, 63, s1, 'bold', BLACK); R.text(unitTxt, 120, 83, s2, 'normal', BLACK); }
   else R.text(HEADER_LINE1, 120, 71, s1, 'bold', BLACK);
 
   // heading
@@ -882,6 +891,37 @@ function renderLib(){
   const mItems = lib.filter(match).sort((a, b) => b.updated - a.updated);
   fillList($('libList'), mItems, false, lib.length ? 'No entries match your search.' : 'No saved entries yet.');
 }
+function buildSuggestion(){
+  const name = $('entryName').value.trim(), text = $('about').value.trim();
+  const d = getData(), ctx = [d.posTitle, d.unit].filter(Boolean).join(' - ');
+  const subject = 'Flyer library suggestion: ' + name;
+  const head = 'Suggested "About the Position" entry for the shared flyer library.\r\n\r\nEntry name: ' + name
+    + (ctx ? '\r\nWritten for flyer: ' + ctx : '') + '\r\n\r\nText:\r\n';
+  const mk = body => `mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  let url = mk(head + text.replace(/\r?\n/g, '\r\n')), clip = false;
+  if (url.length > MAILTO_LIMIT){ clip = true; url = mk(head + '[PASTE THE TEXT HERE - it was copied to your clipboard. Press Ctrl+V.]'); }
+  return { url, clip, name, text, plain: head.replace(/\r\n/g, '\n') + text };
+}
+function suggestReady(){
+  if (!$('about').value.trim()){ toast('Enter the About the Position text first'); $('about').focus(); return false; }
+  if (!$('entryName').value.trim()){ toast('Give the entry a name first'); $('entryName').focus(); return false; }
+  return true;
+}
+$('suggestName').textContent = SUGGEST_NAME;
+$('btnSuggest').addEventListener('click', async () => {
+  if (!suggestReady()) return;
+  const s = buildSuggestion();
+  if (s.clip){
+    try { await navigator.clipboard.writeText(s.text); toast('Text copied. Paste it into the email that opens (Ctrl+V).'); }
+    catch (e) { toast('Could not copy automatically. Copy the text from the box above and paste it into the email.'); }
+  } else toast('Opening your email program...');
+  const a = document.createElement('a'); a.href = s.url; document.body.appendChild(a); a.click(); a.remove();
+});
+$('linkCopySuggest').addEventListener('click', async ev => {
+  ev.preventDefault(); if (!suggestReady()) return;
+  try { await navigator.clipboard.writeText(buildSuggestion().plain); toast(`Copied. Paste it into an email to ${SUGGEST_NAME} (${SUGGEST_EMAIL}).`); }
+  catch (e) { toast('Could not copy automatically. Copy the text from the box above instead.'); }
+});
 $('btnSaveNew').addEventListener('click', () => {
   const name = $('entryName').value.trim(), text = $('about').value.trim();
   if (!text){ toast('Enter the About the Position text first'); $('about').focus(); return; }
