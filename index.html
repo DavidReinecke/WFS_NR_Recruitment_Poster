@@ -45,6 +45,7 @@
   .row.end{justify-content:flex-end}
   .hint{color:var(--muted);font-size:12.5px}
   .hint a{color:var(--orange-l)}
+  #adminBox{margin-top:14px}
   .units{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
   @media(max-width:560px){.units{grid-template-columns:1fr}}
   .units label{display:flex;align-items:center;gap:8px;margin:0;font-size:14px;color:var(--text);cursor:pointer}
@@ -121,16 +122,39 @@
         <button id="btnSuggest">Suggest for shared library</button>
       </div>
       <p class="hint" style="margin:6px 0 0">Emails this entry to <span id="suggestName"></span> for approval. Nothing is published until it is added to the shared library. <a href="#" id="linkCopySuggest">No email program? Copy it as text instead.</a></p>
+      <div id="adminActions" hidden style="margin-top:12px;padding:10px 12px;border:1px dashed var(--orange-d);border-radius:8px">
+        <div class="hint" style="margin-bottom:8px;color:var(--orange-l)">Library admin: these buttons commit directly to the shared library.</div>
+        <div class="row">
+          <button id="btnPubNew" class="primary small">Publish as new shared entry</button>
+          <button id="btnPubUpd" class="small" disabled>Update selected shared entry</button>
+        </div>
+      </div>
 
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0 12px">
       <div class="f"><input type="search" id="libSearch" placeholder="Search shared and saved entries"></div>
 
       <div class="row" style="justify-content:space-between">
         <strong style="font-size:14px">Shared library <span id="sharedCount" style="color:#777;font-weight:400"></span></strong>
-        <button class="small" id="btnShareFile" title="Builds a library.json from the shared entries plus your saved ones">Download combined library.json</button>
       </div>
       <p class="hint" id="sharedNote" style="margin:6px 0 0"></p>
       <div class="lib-list" id="sharedList" style="max-height:300px"></div>
+
+      <details id="adminBox">
+        <summary>Library admin</summary>
+        <div id="adminOut">
+          <div class="f"><label for="ghRepo">Repository name (owner: DavidReinecke, branch: main)</label><input type="text" id="ghRepo" autocomplete="off"></div>
+          <div class="f"><label for="ghToken">GitHub access token</label><input type="password" id="ghToken" autocomplete="off"></div>
+          <div class="row"><button id="btnAdminIn" class="primary small">Sign in</button></div>
+          <p class="hint" style="margin:8px 0 0">Library owner only. Use a fine-grained token limited to this one repository with Contents: Read and write. The token is kept in this browser only and is never part of the page.</p>
+        </div>
+        <div id="adminIn" hidden>
+          <p class="hint" id="adminWho" style="margin:0 0 8px"></p>
+          <div class="row"><button id="btnAdminOut" class="small">Sign out</button></div>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
+        <div class="row"><button class="small" id="btnShareFile" title="Builds a library.json from the shared entries plus your saved ones">Download combined library.json</button></div>
+        <p class="hint" style="margin:6px 0 0">Manual fallback if GitHub cannot be reached: add entries to My library, download this file, and upload it to the repo, replacing library.json.</p>
+      </details>
 
       <div class="row" style="justify-content:space-between;margin-top:18px">
         <strong style="font-size:14px">My library <span id="libCount" style="color:#777;font-weight:400"></span></strong>
@@ -141,7 +165,7 @@
         </div>
       </div>
       <div class="lib-list" id="libList"></div>
-      <p class="hint" style="margin:10px 0 0">Shared entries are read-only here and are managed by the library owner. My library is stored in this browser only. To propose one of your entries for everyone, use Suggest for shared library. Owner: after approving an entry, save it to My library, click Download combined library.json, and upload that file to the repo, replacing the old one.</p>
+      <p class="hint" style="margin:10px 0 0">Shared entries are managed by the library owner. My library is stored in this browser only. To propose one of your entries for everyone, use Suggest for shared library.</p>
     </section>
 
     <section class="card">
@@ -586,6 +610,7 @@ const PAGE_W = 612, PAGE_H = 792;
 const HEADER_LINE1 = 'USWFS Northern Rockies Geographic Area';
 // Approver for shared-library suggestions (suggestions are emailed here).
 const SUGGEST_EMAIL = 'dreinecke@blm.gov', SUGGEST_NAME = 'David Reinecke';
+const GH_OWNER = 'DavidReinecke', GH_BRANCH = 'main', GH_FILE = 'library.json', GH_API = 'https://api.github.com';
 const MAILTO_LIMIT = 1800;   // many mail programs (Outlook) truncate longer mailto links
 // Edit this list to add, remove or rename units. Order here is the order in the dropdown.
 const UNITS = ['Geographic Area Office', 'Yellowstone River', 'Triple Divide', 'Northern Plains', 'Bitterroot Range', 'Tongue River', 'Missouri Breaks'];
@@ -844,7 +869,7 @@ let tt; function toast(m){ const t = $('toast'); t.textContent = m; t.classList.
 
 /* ---------- About the Position library ---------- */
 const LIB_KEY = 'wfs-about-library-v1';
-let lib = [], selectedId = null, memoryOnly = false;
+let lib = [], selectedId = null, selectedSharedId = null, memoryOnly = false;
 const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function readLib(){ try { const v = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); return Array.isArray(v) ? v.filter(e => e && e.id && typeof e.text === 'string') : []; } catch (e) { return []; } }
 function writeLib(){ try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); return true; } catch (e) { if (!memoryOnly){ memoryOnly = true; toast('Browser storage is blocked, so the library will not persist. Use Export JSON to keep it.'); } return false; } }
@@ -852,10 +877,14 @@ function initLib(){ lib = readLib(); }
 function selEntry(){ return lib.find(e => e.id === selectedId) || null; }
 function updateAboutMeta(){
   const n = $('about').value.length; $('aboutCount').textContent = n + ' characters';
-  const e = selEntry(); $('dirty').hidden = !(e && e.text !== $('about').value);
+  const e = selEntry() || selShared(); $('dirty').hidden = !(e && e.text !== $('about').value);
 }
 let shared = [], sharedState = 'loading';
 async function loadShared(){
+  if (admin){
+    try { const cur = await ghReadLib(); shared = cur.entries; sharedState = 'ok'; renderLib(); return; }
+    catch (e) { toast((e.user ? e.message : ghErr(e)) + ' Showing the published copy instead.'); }
+  }
   if (!/^https?:$/.test(location.protocol)){ sharedState = 'offline'; renderLib(); return; }
   try {
     const r = await fetch('library.json', { cache: 'no-cache' });
@@ -868,18 +897,125 @@ async function loadShared(){
   } catch (e) { sharedState = 'error'; }
   renderLib();
 }
+/* ---------- Library admin (commits to library.json through the GitHub API) ---------- */
+const ADMIN_KEY = 'wfs-admin-v1';
+let admin = null, busy = false;
+function readAdmin(){ try { const v = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null'); return v && v.token && v.repo ? v : null; } catch (e) { return null; } }
+function guessRepo(){
+  const h = location.hostname.toLowerCase();
+  if (!h.endsWith('.github.io')) return '';
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  return seg && !/\.html?$/i.test(seg) ? seg : GH_OWNER + '.github.io';
+}
+function selShared(){ return admin ? (shared.find(e => e.id === selectedSharedId) || null) : null; }
+async function gh(method, path, body){
+  const r = await fetch(GH_API + path, {
+    method, cache: 'no-store',
+    headers: Object.assign({ 'Authorization': 'Bearer ' + admin.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, body ? { 'Content-Type': 'application/json' } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok){ const err = new Error((j && j.message) || ('HTTP ' + r.status)); err.status = r.status; throw err; }
+  return j;
+}
+const b64enc = str => { let bin = ''; new TextEncoder().encode(str).forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin); };
+const b64dec = str => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/\s/g, '')), c => c.charCodeAt(0)));
+const filePath = () => `/repos/${GH_OWNER}/${admin.repo}/contents/${GH_FILE}`;
+const normEntries = arr => arr.filter(e => e && typeof e.text === 'string' && typeof e.name === 'string')
+  .map(e => ({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }));
+async function ghReadLib(){
+  let j;
+  try { j = await gh('GET', filePath() + '?ref=' + encodeURIComponent(GH_BRANCH)); }
+  catch (e) { if (e.status === 404) return { sha: null, entries: [] }; throw e; }
+  const parsed = JSON.parse(b64dec(j.content)), arr = Array.isArray(parsed) ? parsed : parsed.entries;
+  if (!Array.isArray(arr)){ const er = new Error('library.json in the repo is not in the expected format.'); er.user = true; throw er; }
+  return { sha: j.sha, entries: normEntries(arr) };
+}
+// Reads the newest file, applies `mutate`, and commits. Retries once if the file changed underneath us.
+async function ghCommit(mutate, message){
+  for (let attempt = 0; attempt < 2; attempt++){
+    const cur = await ghReadLib();
+    const next = mutate(cur.entries.map(e => ({ ...e })));
+    const body = { message, branch: GH_BRANCH, content: b64enc(JSON.stringify({ type: 'wfs-about-library', version: 1, entries: next }, null, 2) + '\n') };
+    if (cur.sha) body.sha = cur.sha;
+    try { await gh('PUT', filePath(), body); shared = next; sharedState = 'ok'; return; }
+    catch (e) { if ((e.status === 409 || e.status === 422) && attempt === 0) continue; throw e; }
+  }
+}
+function ghErr(e){
+  if (e.status === 401) return 'GitHub rejected the token. It may have expired. Sign in again with a new token.';
+  if (e.status === 403) return 'GitHub denied the request. Check that the token has Contents: Read and write for this repository. (' + e.message + ')';
+  if (e.status === 404) return 'Repository or file not found. Check the repository name and that the token covers that repository.';
+  if (e.status === 409 || e.status === 422) return 'The library changed while saving. Try again.';
+  if (e instanceof TypeError) return 'Could not reach GitHub. Your network may block api.github.com.';
+  return 'GitHub error: ' + e.message;
+}
+async function adminRun(fn, okMsg, after){
+  if (busy) return; busy = true; renderLib();
+  try { await fn(); if (after) after(); toast(okMsg); }
+  catch (e) { toast(e.user ? e.message : ghErr(e)); }
+  finally { busy = false; renderLib(); updateAboutMeta(); }
+}
+function applyAdmin(){
+  const on = !!admin;
+  $('adminOut').hidden = on; $('adminIn').hidden = !on; $('adminActions').hidden = !on;
+  if (on) $('adminWho').textContent = `Signed in. Changes commit to ${GH_OWNER}/${admin.repo} (${GH_BRANCH}).`; else selectedSharedId = null;
+  renderLib();
+}
+$('btnAdminIn').addEventListener('click', async () => {
+  const token = $('ghToken').value.trim(), repo = $('ghRepo').value.trim();
+  if (!repo || !token){ toast('Enter the repository name and the token'); return; }
+  const prev = admin; admin = { token, repo };
+  try {
+    const r = await gh('GET', `/repos/${GH_OWNER}/${repo}`);
+    if (r.permissions && r.permissions.push === false){ const er = new Error('This account cannot write to the repository.'); er.user = true; throw er; }
+    try { localStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch (e) { toast('Signed in for this visit only (browser storage is blocked).'); }
+    $('ghToken').value = ''; applyAdmin(); await loadShared(); toast('Signed in as library admin');
+  } catch (e) { admin = prev; toast(e.user ? e.message : ghErr(e)); }
+});
+$('btnAdminOut').addEventListener('click', () => {
+  try { localStorage.removeItem(ADMIN_KEY); } catch (e) {}
+  admin = null; applyAdmin(); loadShared(); toast('Signed out');
+});
+const needEntry = () => {
+  if (!$('about').value.trim()){ toast('Enter the About the Position text first'); $('about').focus(); return false; }
+  if (!$('entryName').value.trim()){ toast('Give the entry a name first'); $('entryName').focus(); return false; }
+  return true;
+};
+function publishNew(name, text, alsoSelect){
+  if (shared.some(x => x.name.toLowerCase() === name.toLowerCase()) && !confirm(`A shared entry named "${name}" already exists. Publish another one with the same name?`)) return;
+  const e = { id: 'shared-' + uid(), name, text, updated: Date.now() };
+  adminRun(() => ghCommit(list => [...list, e], 'Add shared entry: ' + name), 'Published to the shared library', () => { if (alsoSelect){ selectedSharedId = e.id; selectedId = null; } });
+}
+$('btnPubNew').addEventListener('click', () => { if (admin && needEntry()) publishNew($('entryName').value.trim(), $('about').value, true); });
+$('btnPubUpd').addEventListener('click', () => {
+  const sel = selShared(); if (!admin || !sel || !needEntry()) return;
+  const name = $('entryName').value.trim(), text = $('about').value;
+  adminRun(() => ghCommit(list => {
+    const t = list.find(x => x.id === sel.id);
+    if (!t){ const er = new Error('That shared entry no longer exists. Publish it as a new entry instead.'); er.user = true; throw er; }
+    t.name = name; t.text = text; t.updated = Date.now(); return list;
+  }, 'Update shared entry: ' + name), 'Shared entry updated');
+});
+
 function entryCard(e, isShared){
-  const box = document.createElement('div'); box.className = 'entry' + (!isShared && e.id === selectedId ? ' sel' : '');
+  const isSel = isShared ? (!!admin && e.id === selectedSharedId) : e.id === selectedId;
+  const box = document.createElement('div'); box.className = 'entry' + (isSel ? ' sel' : '');
   const h = document.createElement('h3'); h.textContent = e.name;
   if (e.updated){ const m = document.createElement('span'); m.className = 'meta'; m.textContent = new Date(e.updated).toLocaleDateString(); h.appendChild(m); }
-  if (!isShared && e.id === selectedId){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'selected'; h.appendChild(b); }
+  if (isSel){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'selected'; h.appendChild(b); }
   const p = document.createElement('p'); p.textContent = e.text;
   const row = document.createElement('div'); row.className = 'row';
   const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'small ' + cls; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
-  mk('Use', '', () => { selectedId = isShared ? null : e.id; $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast('Loaded into the flyer'); });
+  mk('Use', '', () => { selectedId = isShared ? null : e.id; selectedSharedId = isShared && admin ? e.id : null; $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast('Loaded into the flyer'); });
   if (isShared){
     mk('Copy to my library', '', () => { lib.push({ id: uid(), name: e.name, text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Copied to My library'); });
+    if (admin) mk('Delete', 'danger', () => {
+      if (!confirm(`Delete "${e.name}" from the SHARED library? This removes it for everyone.`)) return;
+      adminRun(() => ghCommit(list => list.filter(x => x.id !== e.id), 'Remove shared entry: ' + e.name), 'Removed from the shared library', () => { if (selectedSharedId === e.id) selectedSharedId = null; });
+    });
   } else {
+    if (admin) mk('Publish to shared', '', () => publishNew(e.name, e.text, false));
     mk('Duplicate', '', () => { lib.push({ id: uid(), name: e.name + ' (copy)', text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Entry duplicated'); });
     mk('Delete', 'danger', () => { if (!confirm(`Delete "${e.name}" from your library?`)) return; lib = lib.filter(x => x.id !== e.id); if (selectedId === e.id) selectedId = null; writeLib(); renderLib(); updateAboutMeta(); });
   }
@@ -896,6 +1032,7 @@ function renderLib(){
   $('libCount').textContent = `(${lib.length} saved)`;
   $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.length})` : '';
   $('btnUpdate').disabled = !selEntry();
+  $('btnPubNew').disabled = busy; $('btnPubUpd').disabled = busy || !selShared();
   const notes = {
     loading: 'Loading shared library...',
     offline: 'The shared library loads only when this page is opened from its web address, not from a file on your computer.',
@@ -944,7 +1081,7 @@ $('btnSaveNew').addEventListener('click', () => {
   if (!text){ toast('Enter the About the Position text first'); $('about').focus(); return; }
   if (!name){ toast('Give the entry a name'); $('entryName').focus(); return; }
   const e = { id: uid(), name, text: $('about').value, updated: Date.now() };
-  lib.push(e); selectedId = e.id; writeLib(); renderLib(); updateAboutMeta(); toast('Saved to library');
+  lib.push(e); selectedId = e.id; selectedSharedId = null; writeLib(); renderLib(); updateAboutMeta(); toast('Saved to library');
 });
 $('btnUpdate').addEventListener('click', () => {
   const e = selEntry(); if (!e) return;
@@ -990,11 +1127,11 @@ $('unitNone').addEventListener('click', e => { e.preventDefault(); setAllUnits(f
 $('btnPdf').addEventListener('click', downloadPdf);
 $('btnPdfTop').addEventListener('click', downloadPdf);
 $('btnSample').addEventListener('click', () => { setForm(SAMPLE); onEdit(); toast('Sample values loaded'); });
-$('btnClear').addEventListener('click', () => { if (!confirm('Clear every field on the flyer? Your saved library is not affected.')) return; setForm({}); selectedId = null; renderLib(); onEdit(); });
+$('btnClear').addEventListener('click', () => { if (!confirm('Clear every field on the flyer? Your saved library is not affected.')) return; setForm({}); selectedId = null; selectedSharedId = null; renderLib(); onEdit(); });
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
 
 $('hdrLogo').src = ASSETS.logo;
-initLib(); setForm(loadDraft() || SAMPLE); renderLib(); updateAboutMeta(); render(); loadShared();
+initLib(); admin = readAdmin(); $('ghRepo').value = (admin && admin.repo) || guessRepo(); setForm(loadDraft() || SAMPLE); applyAdmin(); updateAboutMeta(); render(); loadShared();
 Promise.all([ASSETS.logo, ...ASSETS.right, ...ASSETS.bottom].map(loadImg)).then(render);
 </script>
 </body>
