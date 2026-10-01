@@ -13,7 +13,7 @@
         "images/river-fishing.jpg",
         "images/hiker-badlands.jpg",
         "images/river-bluffs.jpg",
-        "images/engine-crew.jpg",
+        { "src": "images/c130-ramp.jpg", "focus": [0.45, 0.5] },
         "images/mule-deer.jpg"
       ]
     },
@@ -29,7 +29,7 @@
         { "src": "images/prescribed-burn.jpg", "focus": [0.5, 0.35] },
         "images/river-fishing.jpg",
         "images/units-map-wide.jpg",
-        "images/engine-crew.jpg",
+        { "src": "images/c130-ramp.jpg", "focus": [0.45, 0.5] },
         "images/mule-deer.jpg"
       ]
     }
