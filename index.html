@@ -46,6 +46,9 @@
   .hint{color:var(--muted);font-size:12.5px}
   .hint a{color:var(--orange-l)}
   #adminBox{margin-top:14px}
+  .contact{border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px;margin-bottom:10px;background:#101010}
+  .contact .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .contact .head strong{font-size:13px;color:var(--muted)}
   .units{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
   @media(max-width:560px){.units{grid-template-columns:1fr}}
   .units label{display:flex;align-items:center;gap:8px;margin:0;font-size:14px;color:var(--text);cursor:pointer}
@@ -176,13 +179,10 @@
     </section>
 
     <section class="card">
-      <h2>Contact</h2>
-      <div class="grid2">
-        <div class="f"><label for="cName">Contact name</label><input type="text" id="cName" autocomplete="off"></div>
-        <div class="f"><label for="cTitle">Contact title (optional)</label><input type="text" id="cTitle" autocomplete="off"></div>
-        <div class="f"><label for="cPhone">Phone number</label><input type="tel" id="cPhone" autocomplete="off"></div>
-        <div class="f"><label for="cEmail">Email address</label><input type="email" id="cEmail" autocomplete="off"></div>
-      </div>
+      <h2>Points of contact</h2>
+      <div id="contacts"></div>
+      <div class="row"><button class="small" id="btnAddContact">Add another contact</button></div>
+      <p class="hint" style="margin:8px 0 0">To list more than one email address for the same person, separate them with a semicolon. Each address becomes its own link on the flyer.</p>
     </section>
 
     <section class="card">
@@ -684,21 +684,39 @@ function centerRuns(R, runs, cx, y, size, maxW, minSize){
 }
 
 /* ---------- flyer layout (single source of truth for preview and PDF) ---------- */
-function contactRuns(d){
-  if (!(d.cName || d.cPhone || d.cEmail)) return null;
-  const r = [{ t: 'Questions | ', style: 'bold' }, { t: 'Please contact ', style: 'normal' }];
-  const who = [d.cName, d.cTitle].filter(Boolean).join(', ');
-  if (who){ r.push({ t: who, style: 'normal' }); if (d.cPhone || d.cEmail) r.push({ t: ' at ', style: 'normal' }); }
-  if (d.cPhone){ r.push({ t: d.cPhone, style: 'normal', keep: true }); if (d.cEmail) r.push({ t: ', ', style: 'normal' }); }
-  if (d.cEmail) r.push({ t: d.cEmail, style: 'normal', keep: true, link: 'mailto:' + d.cEmail, color: ORANGE_LT, underline: true });
+const EMAIL_OK = /^[^\s@]+@[^\s@]+$/;
+function emailRuns(emails){
+  const r = [];
+  emails.forEach((e, i) => {
+    if (i) r.push({ t: '; ', style: 'normal' });
+    if (EMAIL_OK.test(e)) r.push({ t: e, style: 'normal', keep: true, link: 'mailto:' + e, color: ORANGE_LT, underline: true });   // one link per address
+    else r.push({ t: e, style: 'normal', keep: true });
+  });
   return r;
+}
+function contactDetail(c, boldName){
+  const r = [];
+  if (c.name) r.push({ t: c.name, style: boldName ? 'bold' : 'normal' });
+  if (c.title) r.push({ t: (c.name ? ', ' : '') + c.title, style: 'normal' });
+  if ((c.name || c.title) && (c.phone || c.emails.length)) r.push({ t: ' at ', style: 'normal' });
+  if (c.phone){ r.push({ t: c.phone, style: 'normal', keep: true }); if (c.emails.length) r.push({ t: ', ', style: 'normal' }); }
+  r.push(...emailRuns(c.emails));
+  return r;
+}
+// One contact reads as a sentence; several become a short list, one line group per person.
+function contactParas(d){
+  const cs = d.contacts; if (!cs.length) return [];
+  if (cs.length === 1) return [{ runs: [{ t: 'Questions | ', style: 'bold' }, { t: 'Please contact ', style: 'normal' }, ...contactDetail(cs[0], false)] }];
+  const out = [{ runs: [{ t: 'Questions | ', style: 'bold' }, { t: 'Please contact:', style: 'normal' }], gap: 0.2 }];
+  cs.forEach((c, i) => out.push({ runs: contactDetail(c, true), gap: i === cs.length - 1 ? undefined : 0.3 }));
+  return out;
 }
 function bodyFlow(R, d, size, y0){
   const lh = size * 1.42, gap = size * 0.75;
   let y = y0, last = y0;
-  const para = runs => {
+  const para = (runs, g) => {
     for (const ln of wrapRuns(runs, COL_W, size)){ drawLine(R, ln, COL_X, y, size); last = y; y += lh; }
-    y += gap - (lh - lh);
+    y += g == null ? gap : size * g;
   };
   if (d.reloc) para([{ t: 'Relocation expenses will be authorized.', style: 'bolditalic', color: ORANGE }]);
   const paras = d.about.split(/\n\s*\n/).map(p => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
@@ -708,7 +726,7 @@ function bodyFlow(R, d, size, y0){
     runs.push({ t: p, style: 'normal' });
     para(runs);
   });
-  const c = contactRuns(d); if (c) para(c);
+  contactParas(d).forEach(cp => para(cp.runs, cp.gap));
   return last;
 }
 
@@ -813,7 +831,7 @@ function pdfR(doc){
 }
 
 /* ---------- form state ---------- */
-const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about','cName','cTitle','cPhone','cEmail'];
+const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about'];
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'wfs-flyer-draft-v1';
 
@@ -822,26 +840,63 @@ const SAMPLE = {
   posTitle: 'District Fire Management Officer', opmTitle: 'Supervisory Wildland Firefighter', payGrade: 'GW-0456-13',
   dutyLoc: 'Billings OR Miles City, Montana', annNum: 'FADHA-26-12861490-CMP', usajobsUrl: 'https://www.usajobs.gov/',
   applyBy: '2026-01-21', reloc: true, about: SAMPLE_ABOUT,
-  cName: 'Aaron Thompson', cTitle: 'State Fire Management Officer', cPhone: '(307) 330-6743', cEmail: 'althompson@blm.gov',
+  contacts: [{ name: 'Aaron Thompson', title: 'State Fire Management Officer', phone: '(307) 330-6743', email: 'althompson@blm.gov' }],
   units: []
 };
 (function buildUnitBoxes(){
   const box = document.getElementById('unitBox');
   UNITS.forEach((u, i) => { const l = document.createElement('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = u; cb.id = 'unit' + i; l.htmlFor = cb.id; l.append(cb, document.createTextNode(u)); box.appendChild(l); });
 })();
+/* ---------- points of contact ---------- */
+const MAX_CONTACTS = 6;
+const CONTACT_FIELDS = [['name', 'Name', 'text'], ['title', 'Title (optional)', 'text'], ['phone', 'Phone number', 'tel'], ['email', 'Email address(es)', 'text']];
+function renderContacts(list){
+  const box = $('contacts'); box.textContent = '';
+  list.forEach((c, i) => {
+    const el = document.createElement('div'); el.className = 'contact';
+    const head = document.createElement('div'); head.className = 'head';
+    const t = document.createElement('strong'); t.textContent = list.length > 1 ? 'Contact ' + (i + 1) : 'Contact'; head.appendChild(t);
+    if (list.length > 1){ const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'small danger'; rm.textContent = 'Remove'; rm.dataset.rm = i; head.appendChild(rm); }
+    el.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'grid2';
+    CONTACT_FIELDS.forEach(([k, label, type]) => {
+      const f = document.createElement('div'); f.className = 'f'; if (k === 'email') f.style.gridColumn = '1 / -1';
+      const id = `c${i}-${k}`, l = document.createElement('label'); l.htmlFor = id; l.textContent = label;
+      const inp = document.createElement('input'); inp.type = type; inp.id = id; inp.dataset.f = k; inp.autocomplete = 'off'; inp.value = c[k] || '';
+      if (k === 'email') inp.placeholder = 'name@agency.gov; second.person@agency.gov';
+      f.append(l, inp); grid.appendChild(f);
+    });
+    el.appendChild(grid); box.appendChild(el);
+  });
+  $('btnAddContact').disabled = list.length >= MAX_CONTACTS;
+}
+function readContacts(){
+  return [...$('contacts').querySelectorAll('.contact')].map(el => {
+    const o = {}; el.querySelectorAll('input[data-f]').forEach(i => { o[i.dataset.f] = i.value; }); return o;
+  });
+}
+function contactsFrom(v){
+  if (Array.isArray(v.contacts) && v.contacts.length) return v.contacts.slice(0, MAX_CONTACTS);
+  if (v.cName || v.cTitle || v.cPhone || v.cEmail) return [{ name: v.cName, title: v.cTitle, phone: v.cPhone, email: v.cEmail }];   // older saved drafts
+  return [{}];
+}
 function setForm(v){
-  IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc;
+  IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc; renderContacts(contactsFrom(v));
   const u = Array.isArray(v.units) ? v.units : (v.unitName ? [v.unitName] : []);   // unitName = older saved drafts
   document.querySelectorAll('#unitBox input').forEach(cb => { cb.checked = u.includes(cb.value); });
 }
-function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; o.units = [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value); return o; }
+function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; o.contacts = readContacts(); o.units = [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value); return o; }
 function getData(){
   const r = rawForm(), c = k => clean(r[k]).replace(/\s*\n\s*/g, ' ').trim();
   let url = (r.usajobsUrl || '').trim(); if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   return {
     posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
     url, applyBy: fmtDate(r.applyBy), reloc: r.reloc, about: clean(r.about).trim(),
-    cName: c('cName'), cTitle: c('cTitle'), cPhone: c('cPhone'), cEmail: c('cEmail'), units: UNITS.filter(u => r.units.includes(u))
+    contacts: (r.contacts || []).map(x => {
+      const one = v => clean(v).replace(/\s*\n\s*/g, ' ').trim();
+      return { name: one(x.name), title: one(x.title), phone: one(x.phone), emails: one(x.email).split(/[;,]/).map(e => e.trim()).filter(Boolean) };   // semicolon (or comma) separates addresses
+    }).filter(x => x.name || x.title || x.phone || x.emails.length),
+    units: UNITS.filter(u => r.units.includes(u))
   };
 }
 function saveDraft(){ try { localStorage.setItem(DRAFT_KEY, JSON.stringify(rawForm())); } catch (e) {} }
@@ -1236,6 +1291,15 @@ $('importFile').addEventListener('change', async ev => {
 IDS.forEach(id => $(id).addEventListener('input', onEdit));
 $('reloc').addEventListener('change', onEdit);
 $('unitBox').addEventListener('change', onEdit);
+$('contacts').addEventListener('input', onEdit);
+$('btnAddContact').addEventListener('click', () => {
+  const l = readContacts(); if (l.length >= MAX_CONTACTS) return;
+  l.push({}); renderContacts(l); $('contacts').lastElementChild.querySelector('input').focus(); onEdit();
+});
+$('contacts').addEventListener('click', e => {
+  const b = e.target.closest('[data-rm]'); if (!b) return;
+  const l = readContacts(); l.splice(+b.dataset.rm, 1); renderContacts(l.length ? l : [{}]); onEdit();
+});
 const setAllUnits = on => { document.querySelectorAll('#unitBox input').forEach(cb => { cb.checked = on; }); onEdit(); };
 $('unitAll').addEventListener('click', e => { e.preventDefault(); setAllUnits(true); });
 $('unitNone').addEventListener('click', e => { e.preventDefault(); setAllUnits(false); });
