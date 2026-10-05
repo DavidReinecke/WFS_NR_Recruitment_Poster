@@ -110,7 +110,7 @@
         <div class="f"><label for="applyBy">Apply by</label><input type="date" id="applyBy"></div>
       </div>
       <div class="f"><label for="usajobsUrl">USAJOBS announcement link</label><input type="url" id="usajobsUrl" placeholder="https://www.usajobs.gov/job/..." autocomplete="off"></div>
-      <div class="check"><input type="checkbox" id="reloc"><label for="reloc">Relocation expenses will be authorized</label></div>
+      <div class="check"><input type="checkbox" id="reloc"><label for="reloc">Relocation expenses may be authorized</label></div>
     </section>
 
     <section class="card">
@@ -718,7 +718,7 @@ function bodyFlow(R, d, size, y0){
     for (const ln of wrapRuns(runs, COL_W, size)){ drawLine(R, ln, COL_X, y, size); last = y; y += lh; }
     y += g == null ? gap : size * g;
   };
-  if (d.reloc) para([{ t: 'Relocation expenses will be authorized.', style: 'bolditalic', color: ORANGE }]);
+  if (d.reloc) para([{ t: 'Relocation expenses may be authorized.', style: 'bolditalic', color: ORANGE }]);
   const paras = d.about.split(/\n\s*\n/).map(p => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   paras.forEach((p, i) => {
     const runs = [];
