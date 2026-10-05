@@ -1,0 +1,40 @@
+{
+  "type": "wfs-units",
+  "version": 1,
+  "areas": [
+    {
+      "id": "nrga",
+      "name": "Northern Rockies Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Yellowstone River",
+          "writeup": ""
+        },
+        {
+          "name": "Triple Divide",
+          "writeup": ""
+        },
+        {
+          "name": "Northern Plains",
+          "writeup": ""
+        },
+        {
+          "name": "Bitterroot Range",
+          "writeup": ""
+        },
+        {
+          "name": "Tongue River",
+          "writeup": ""
+        },
+        {
+          "name": "Missouri Breaks",
+          "writeup": ""
+        }
+      ]
+    }
+  ]
+}
