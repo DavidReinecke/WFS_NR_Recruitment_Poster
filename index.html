@@ -222,6 +222,14 @@
     <div class="modal-head"><h2 id="edTitle">Geographic areas, units &amp; writeups</h2><button id="edClose" class="small">Close</button></div>
     <div class="modal-body">
       <p class="hint" id="edNote" style="margin-top:0"></p>
+      <div id="sugBox" hidden style="border:1px solid var(--orange-d);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:#101010">
+        <h3 style="margin-top:0">Suggest a unit writeup</h3>
+        <p class="hint" style="margin-top:0">Pick a unit, write or edit its writeup below, then send it for approval. It is emailed to <span id="sugName"></span>, and nothing changes for anyone until it is added to the shared units list.</p>
+        <div class="f"><label for="sugUnit">Unit</label><select id="sugUnit"></select></div>
+        <div class="f"><label for="sugText">Writeup (leave a blank line between paragraphs)</label><textarea id="sugText" autocomplete="off"></textarea></div>
+        <div class="row"><button class="primary" id="sugSend">Suggest for shared units</button></div>
+        <p class="hint" style="margin:6px 0 0"><a href="#" id="sugCopy">No email program? Copy it as text instead.</a></p>
+      </div>
       <div class="f"><label for="edArea">Geographic area</label>
         <div class="row"><select id="edArea" style="flex:1;min-width:200px"></select><button class="small" id="edAreaAdd" data-edit>Add area</button></div></div>
       <div class="f"><label for="edAreaName">Area name (the flyer heading reads &quot;USWFS &quot; plus this name)</label>
@@ -1457,14 +1465,54 @@ function edRender(){
     c.append(l1, n, l2, w, row); box.appendChild(c);
   });
   const ro = ed.ro;
-  $('edModal').querySelectorAll('input[type=text],textarea').forEach(el => { el.readOnly = ro; });
-  $('edModal').querySelectorAll('.modal-body button, #edPublish').forEach(el => { el.disabled = ro; });
+  $('edModal').querySelectorAll('input[type=text],textarea').forEach(el => { if (!el.closest('#sugBox')) el.readOnly = ro; });
+  $('edModal').querySelectorAll('.modal-body button, #edPublish').forEach(el => { if (!el.closest('#sugBox')) el.disabled = ro; });
   if (!ro) $('edPublish').disabled = !!ed.busy;
   $('edNote').textContent = ro
-    ? 'View only. Only the library admin can publish changes: sign in under Library admin on the page, then reopen this screen. You can still download the current units.json.'
+    ? 'View only. To propose a writeup, use Suggest a unit writeup below. Only the library admin can publish changes: sign in under Library admin on the page, then reopen this screen. You can still download the current units.json.'
     : `Changes publish to ${UNITS_FILE} in ${GH_OWNER}/${admin.repo} (${GH_BRANCH}) and apply to everyone. Nothing is saved until you choose Publish changes.`
       + (unitsState === 'error' || unitsState === 'offline' ? ' Note: units.json could not be loaded from the site, so the built-in list is shown.' : '');
 }
+/* ---------- Suggest a unit writeup (emailed to the approver; shown to people who cannot publish) ---------- */
+$('sugName').textContent = SUGGEST_NAME;
+function sugFill(){
+  const a = ed.areas[ed.ai], sel = $('sugUnit'); sel.textContent = '';
+  a.units.forEach((u, i) => { const o = document.createElement('option'); o.value = i; o.textContent = u.name; sel.appendChild(o); });
+  sugLoad();
+}
+function sugLoad(){ const a = ed.areas[ed.ai], u = a.units[+$('sugUnit').value]; $('sugText').value = u ? u.writeup : ''; ed.sugBase = $('sugText').value; }
+function buildUnitSuggestion(){
+  const a = ed.areas[ed.ai], u = a.units[+$('sugUnit').value], text = $('sugText').value.trim();
+  const subject = 'Unit writeup suggestion: ' + a.name + ' - ' + u.name;
+  const head = 'Suggested unit writeup for the shared units list.\r\n\r\nGeographic area: ' + a.name + '\r\nUnit: ' + u.name + '\r\n\r\nWriteup:\r\n';
+  const mk = body => `mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  let url = mk(head + text.replace(/\r?\n/g, '\r\n')), clip = false;
+  if (url.length > MAILTO_LIMIT){ clip = true; url = mk(head + '[PASTE THE TEXT HERE - it was copied to your clipboard. Press Ctrl+V.]'); }
+  return { url, clip, text, plain: subject + '\n\n' + head.replace(/\r\n/g, '\n') + text };
+}
+function sugReady(){
+  if (!ed || !ed.areas[ed.ai].units.length){ toast('This area has no units to suggest a writeup for'); return false; }
+  const t = $('sugText').value.trim();
+  if (!t){ toast('Enter the writeup first'); $('sugText').focus(); return false; }
+  if (t === (ed.sugBase || '').trim()){ toast('Edit the writeup first - it is the same as the current one'); $('sugText').focus(); return false; }
+  return true;
+}
+$('sugUnit').addEventListener('change', sugLoad);
+$('sugSend').addEventListener('click', async () => {
+  if (!sugReady()) return;
+  const s = buildUnitSuggestion();
+  if (s.clip){
+    try { await navigator.clipboard.writeText(s.text); toast('Text copied. Paste it into the email that opens (Ctrl+V).'); }
+    catch (e) { toast('Could not copy automatically. Copy the text from the box and paste it into the email.'); }
+  } else toast('Opening your email program...');
+  const a = document.createElement('a'); a.href = s.url; document.body.appendChild(a); a.click(); a.remove();
+});
+$('sugCopy').addEventListener('click', async ev => {
+  ev.preventDefault(); if (!sugReady()) return;
+  try { await navigator.clipboard.writeText(buildUnitSuggestion().plain); toast(`Copied. Paste it into an email to ${SUGGEST_NAME} (${SUGGEST_EMAIL}).`); }
+  catch (e) { toast('Could not copy automatically. Copy the text from the box instead.'); }
+});
+
 async function edOpen(){
   const cur = clone(AREAS); let sha;
   if (admin){
@@ -1473,7 +1521,9 @@ async function edOpen(){
   }
   const idx = cur.findIndex(a => a.id === $('areaSel').value);
   ed = { areas: cur, ai: Math.max(0, idx), sha, ro: !admin, busy: false };
-  $('edBulk').value = ''; edStatus(''); $('edModal').hidden = false; edRender(); $('edClose').focus();
+  $('edBulk').value = ''; edStatus(''); $('edModal').hidden = false; edRender();
+  $('sugBox').hidden = !ed.ro; if (ed.ro) sugFill();
+  $('edClose').focus();
 }
 function edClose(){ if (ed && ed.dirty && !ed.ro && !confirm('Close without publishing? Your changes will be lost.')) return; ed = null; $('edModal').hidden = true; $('unitEdit').focus(); }
 function edValidate(){
@@ -1493,7 +1543,7 @@ function edMark(){ ed.dirty = true; edStatus(''); }
 $('unitEdit').addEventListener('click', e => { e.preventDefault(); edOpen(); });
 $('edClose').addEventListener('click', edClose);
 $('edModal').addEventListener('keydown', e => { if (e.key === 'Escape') edClose(); });
-$('edArea').addEventListener('change', () => { ed.ai = +$('edArea').value; edRender(); });
+$('edArea').addEventListener('change', () => { ed.ai = +$('edArea').value; edRender(); if (ed.ro) sugFill(); });
 $('edAreaName').addEventListener('input', () => { edArea().name = $('edAreaName').value; edMark(); const o = $('edArea').options[ed.ai]; if (o) o.textContent = edArea().name || '(unnamed area)'; });
 $('edUnits').addEventListener('input', e => { const t = e.target; if (t.dataset.k){ edArea().units[+t.dataset.i][t.dataset.k] = t.value; edMark(); } });
 $('edUnits').addEventListener('click', e => {
