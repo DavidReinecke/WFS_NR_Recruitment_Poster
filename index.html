@@ -216,7 +216,7 @@
     </div>
   </aside>
 </main>
-<footer>Fields autosave in this browser. Nothing is uploaded anywhere.</footer>
+<footer>The form starts blank every time this page opens, so download your PDF before you close it. Nothing is uploaded anywhere.</footer>
 <div id="edModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="edTitle">
   <div class="modal-box">
     <div class="modal-head"><h2 id="edTitle">Geographic areas, units &amp; writeups</h2><button id="edClose" class="small">Close</button></div>
@@ -235,6 +235,8 @@
       <div class="f"><label for="edAreaName">Area name (the flyer heading reads &quot;USWFS &quot; plus this name)</label>
         <input type="text" id="edAreaName" data-edit autocomplete="off">
         <div class="row" style="margin-top:6px"><button class="small" id="edAreaUp" data-edit>Move up</button><button class="small" id="edAreaDown" data-edit>Move down</button><button class="small danger" id="edAreaDel" data-edit>Delete this area</button></div></div>
+      <div class="f"><label for="edAreaMap">Map picture file (optional, shown above the unit writeups; for example maps/alaska.jpg)</label>
+        <input type="text" id="edAreaMap" data-edit autocomplete="off" placeholder="maps/your-map.jpg"></div>
       <h3>Units in this area</h3>
       <p class="hint" style="margin-top:0">A unit with a writeup adds an &quot;About the Unit&quot; page to any flyer that selects it. Leave the writeup empty for no extra page. Leave a blank line between paragraphs.</p>
       <div id="edUnits"></div>
@@ -821,7 +823,8 @@ function unitPages(d){
       if (pi < all.length - 1) items.push({ gap: XP_SZ * 0.75 });
     });
   });
-  const pages = []; let cur = [], y = XP_TOP;
+  const mapH = d.map ? XP_W * d.map.ratio : 0;
+  const pages = []; let cur = [], y = XP_TOP + (mapH ? mapH + 16 : 0);
   for (const it of items){
     if (it.gap){ if (cur.length) y += it.gap; continue; }
     if (y + it.need > XP_BOTTOM && cur.length){ pages.push(cur); cur = []; y = XP_TOP; }
@@ -835,6 +838,7 @@ function drawExtra(R, d, page, n, total){
   const ttl = d.writeups.length > 1 ? 'ABOUT THE UNITS' : 'ABOUT THE UNIT';
   let ts = 40; while (tw(ttl, ts, 'bold') > XP_W && ts > 20) ts -= 0.5;
   R.text(ttl, COL_X, 141, ts, 'bold', WHITE);
+  if (n === 2 && d.map){ const h = XP_W * d.map.ratio; R.image(d.map.data, XP_X, XP_TOP, XP_W, h); R.strokeRect(XP_X, XP_TOP, XP_W, h, ORANGE, 1.25); }
   page.forEach(it => {
     if (it.head){
       let hs = 14; while (tw(it.head, hs, 'bold') > XP_W && hs > 9) hs -= 0.5;
@@ -955,7 +959,8 @@ function normAreas(j){
       const n = u.name.trim(), k = n.toLowerCase(); if (seen.has(k)) return; seen.add(k);
       units.push({ name: n, writeup: typeof u.writeup === 'string' ? u.writeup : '' });
     });
-    out.push({ id, name: a.name.trim(), units });
+    const map = typeof a.map === 'string' ? a.map.trim() : '';
+    out.push(map ? { id, name: a.name.trim(), map, units } : { id, name: a.name.trim(), units });
   });
   return out.length ? out : null;
 }
@@ -1016,12 +1021,33 @@ function setForm(v){
   setAreaUnits(v.areaId, u);
 }
 function rawForm(){ const o = {}; IDS.forEach(id => o[id] = $(id).value); o.reloc = $('reloc').checked; o.contacts = readContacts(); o.areaId = $('areaSel').value; o.units = [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value); return o; }
+/* ---------- area map picture (drawn above the unit writeups) ---------- */
+const mapCache = new Map();             // site path -> { data, ratio } (data is a JPEG data URL), or { bad: true }
+function areaMap(path){
+  if (!path) return null;
+  const hit = mapCache.get(path); if (hit) return hit.bad ? null : hit;
+  mapCache.set(path, { pending: true, bad: false });
+  const im = new Image();
+  im.onload = async () => {
+    try {
+      const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0);
+      const data = c.toDataURL('image/jpeg', 0.92); await loadImg(data);
+      mapCache.set(path, { data, ratio: im.naturalHeight / im.naturalWidth });
+    } catch (e) { mapCache.set(path, { bad: true }); }
+    scheduleRender();
+  };
+  im.onerror = () => { mapCache.set(path, { bad: true }); scheduleRender(); };
+  try { im.src = new URL(path, location.href).href; } catch (e) { mapCache.set(path, { bad: true }); }
+  return null;
+}
 function getData(){
   const r = rawForm(), c = k => clean(r[k]).replace(/\s*\n\s*/g, ' ').trim();
   let url = (r.usajobsUrl || '').trim(); if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   const area = curArea(), picked = area.units.filter(u => r.units.includes(u.name));
   return {
     areaId: area.id, area: clean(area.name), header: 'USWFS ' + clean(area.name),
+    map: (() => { const m = /^https?:$/.test(location.protocol) ? areaMap(area.map) : null; return m && m.data ? m : null; })(),
     writeups: picked.filter(u => clean(u.writeup).trim()).map(u => ({ name: clean(u.name), text: clean(u.writeup).trim() })),
     posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
     url, applyBy: fmtDate(r.applyBy), reloc: r.reloc, about: clean(r.about).trim(),
@@ -1032,8 +1058,7 @@ function getData(){
     units: picked.map(u => clean(u.name))
   };
 }
-function saveDraft(){ try { localStorage.setItem(DRAFT_KEY, JSON.stringify(rawForm())); } catch (e) {} }
-function loadDraft(){ try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; } }
+// The form always opens blank: nothing typed is kept between visits (any draft saved by an older version is removed on load).
 
 /* ---------- preview ---------- */
 const cv = $('preview'); let raf = 0;
@@ -1055,7 +1080,7 @@ function render(){
   $('unitNote').textContent = d.writeups.length ? `Unit writeup page${extra.length > 1 ? 's' : ''} will be added for: ${d.writeups.map(w => w.name).join(', ')}.` : '';
 }
 function scheduleRender(){ cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }
-function onEdit(){ pendingSel = null; saveDraft(); scheduleRender(); updateAboutMeta(); }
+function onEdit(){ pendingSel = null; scheduleRender(); updateAboutMeta(); }
 
 /* ---------- Flyer versions (photo layouts) ---------- */
 const TPL_KEY = 'wfs-flyer-template-v1';
@@ -1166,7 +1191,8 @@ $('tplSel').addEventListener('change', () => {
 /* ---------- PDF ---------- */
 async function downloadPdf(){
   await tplPromise;                      // wait until the selected version's photos are ready
-  const d = getData();
+  let d = getData();
+  const ar = curArea(); if (ar.map && !d.map){ for (let i = 0; i < 40 && (mapCache.get(ar.map) || {}).pending; i++) await new Promise(r => setTimeout(r, 100)); d = getData(); }
   const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
   draw(pdfR(doc), d);
   const extra = unitPages(d);
@@ -1451,7 +1477,7 @@ function edStatus(m, bad){ const s = $('edStatus'); s.textContent = m || ''; s.c
 function edRender(){
   const sel = $('edArea'); sel.textContent = '';
   ed.areas.forEach((a, i) => { const o = document.createElement('option'); o.value = i; o.textContent = a.name || '(unnamed area)'; sel.appendChild(o); });
-  sel.value = ed.ai; const a = edArea(); $('edAreaName').value = a.name;
+  sel.value = ed.ai; const a = edArea(); $('edAreaName').value = a.name; $('edAreaMap').value = a.map || '';
   const box = $('edUnits'); box.textContent = '';
   if (!a.units.length){ const p = document.createElement('p'); p.className = 'hint'; p.textContent = 'No units yet. Add one below.'; box.appendChild(p); }
   a.units.forEach((u, i) => {
@@ -1537,7 +1563,7 @@ function edValidate(){
   if (!ed.areas.length) errs.push('Keep at least one geographic area.');
   return errs;
 }
-const edClean = () => ed.areas.map(a => ({ id: a.id, name: a.name.trim(), units: a.units.map(u => ({ name: u.name.trim(), writeup: u.writeup.replace(/\r\n?/g, '\n').trim() })) }));
+const edClean = () => ed.areas.map(a => ({ id: a.id, name: a.name.trim(), ...(a.map && a.map.trim() ? { map: a.map.trim() } : {}), units: a.units.map(u => ({ name: u.name.trim(), writeup: u.writeup.replace(/\r\n?/g, '\n').trim() })) }));
 const unitsJson = areas => JSON.stringify({ type: 'wfs-units', version: 1, areas }, null, 2) + '\n';
 function edMark(){ ed.dirty = true; edStatus(''); }
 $('unitEdit').addEventListener('click', e => { e.preventDefault(); edOpen(); });
@@ -1545,6 +1571,7 @@ $('edClose').addEventListener('click', edClose);
 $('edModal').addEventListener('keydown', e => { if (e.key === 'Escape') edClose(); });
 $('edArea').addEventListener('change', () => { ed.ai = +$('edArea').value; edRender(); if (ed.ro) sugFill(); });
 $('edAreaName').addEventListener('input', () => { edArea().name = $('edAreaName').value; edMark(); const o = $('edArea').options[ed.ai]; if (o) o.textContent = edArea().name || '(unnamed area)'; });
+$('edAreaMap').addEventListener('input', () => { edArea().map = $('edAreaMap').value; edMark(); });
 $('edUnits').addEventListener('input', e => { const t = e.target; if (t.dataset.k){ edArea().units[+t.dataset.i][t.dataset.k] = t.value; edMark(); } });
 $('edUnits').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -1620,8 +1647,8 @@ $('btnClear').addEventListener('click', () => { if (!confirm('Clear every field 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
 
 $('hdrLogo').src = ASSETS.logo;
-initLib(); { const dr = loadDraft(); if (dr) pendingSel = { areaId: dr.areaId, units: Array.isArray(dr.units) ? dr.units : (dr.unitName ? [dr.unitName] : []) }; }
-admin = readAdmin(); $('ghRepo').value = (admin && admin.repo) || guessRepo(); setForm(loadDraft() || SAMPLE); applyAdmin(); updateAboutMeta(); render(); loadShared(); loadUnits();
+initLib(); try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+admin = readAdmin(); $('ghRepo').value = (admin && admin.repo) || guessRepo(); setForm({}); applyAdmin(); updateAboutMeta(); render(); loadShared(); loadUnits();
 Promise.all([ASSETS.logo, ...curSlots.map(sl => sl.url)].map(loadImg)).then(render);
 tplPromise = loadTemplates();
 </script>
