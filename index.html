@@ -134,7 +134,7 @@
         <div class="counter" id="aboutCount"></div>
       </div>
 
-      <div class="hint" style="margin-bottom:8px">Save this text to your library to reuse or edit it on later flyers.</div>
+      <div class="hint" style="margin-bottom:8px">Saving keeps everything on the form (Position Title, OPM Position Title, Pay Grade, Duty Locations, announcement number, link, close date, contacts, area and units) along with the About text, so you can reload the whole flyer later.</div>
       <div class="f"><label for="entryName">Library entry name</label><input type="text" id="entryName" placeholder="e.g. District FMO - Eastern MT/Dakotas" autocomplete="off"></div>
       <div class="row">
         <button id="btnSaveNew">Save as new entry</button>
@@ -1225,9 +1225,25 @@ let tt; function toast(m){ const t = $('toast'); t.textContent = m; t.classList.
 const LIB_KEY = 'wfs-about-library-v1';
 let lib = [], selectedId = null, selectedSharedId = null, memoryOnly = false;
 const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-function readLib(){ try { const v = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); return Array.isArray(v) ? v.filter(e => e && e.id && typeof e.text === 'string') : []; } catch (e) { return []; } }
+function readLib(){ try { const v = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); return Array.isArray(v) ? v.filter(e => e && e.id && typeof e.text === 'string').map(e => withForm(e, e.form)) : []; } catch (e) { return []; } }
 function writeLib(){ try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); return true; } catch (e) { if (!memoryOnly){ memoryOnly = true; toast('Browser storage is blocked, so the library will not persist. Use Export JSON to keep it.'); } return false; } }
 function initLib(){ lib = readLib(); }
+/* A library entry keeps the About text plus a snapshot of every other field on the form (titles, pay grade, duty locations, announcement number, link, close date, relocation, contacts, area and units). */
+const FORM_KEYS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy'];
+const snapForm = () => { const r = rawForm(); return { ...Object.fromEntries(FORM_KEYS.map(k => [k, r[k] || ''])), reloc: !!r.reloc, areaId: r.areaId, units: r.units, contacts: (r.contacts || []).filter(c => Object.values(c).some(v => (v || '').trim())) }; };
+const cleanForm = f => (f && typeof f === 'object' && !Array.isArray(f)) ? f : undefined;
+const withForm = (o, f) => { f = cleanForm(f); if (f) o.form = f; return o; };
+const formLines = f => {
+  f = cleanForm(f); if (!f) return [];
+  const L = [], add = (k, v) => { if (v && String(v).trim()) L.push(k + ': ' + String(v).trim()); };
+  add('Position Title', f.posTitle); add('OPM Position Title', f.opmTitle); add('Pay Grade', f.payGrade); add('Duty Locations', f.dutyLoc);
+  add('Announcement Number', f.annNum); add('USAJOBS Link', f.usajobsUrl); add('Applications Close', f.applyBy);
+  if (f.reloc) L.push('Relocation incentives: yes');
+  const a = (AREAS.find(x => x.id === f.areaId) || {}).name; add('Geographic Area', a);
+  if (Array.isArray(f.units) && f.units.length) add('Units', f.units.join(', '));
+  (f.contacts || []).forEach((c, i) => add('Contact ' + (i + 1), [c.name, c.title, c.phone, c.email].filter(Boolean).join(' | ')));
+  return L;
+};
 function selEntry(){ return lib.find(e => e.id === selectedId) || null; }
 function updateAboutMeta(){
   const n = $('about').value.length; $('aboutCount').textContent = n + ' characters';
@@ -1245,8 +1261,7 @@ async function loadShared(){
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json(), arr = Array.isArray(j) ? j : j.entries;
     if (!Array.isArray(arr)) throw new Error('format');
-    shared = arr.filter(e => e && typeof e.text === 'string' && typeof e.name === 'string')
-                .map(e => ({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }));
+    shared = normEntries(arr);
     sharedState = 'ok';
   } catch (e) { sharedState = 'error'; }
   renderLib();
@@ -1276,7 +1291,7 @@ const b64enc = str => { let bin = ''; new TextEncoder().encode(str).forEach(b =>
 const b64dec = str => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/\s/g, '')), c => c.charCodeAt(0)));
 const filePath = (f = GH_FILE) => `/repos/${GH_OWNER}/${admin.repo}/contents/${f}`;
 const normEntries = arr => arr.filter(e => e && typeof e.text === 'string' && typeof e.name === 'string')
-  .map(e => ({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }));
+  .map(e => withForm({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }, e.form));
 async function ghReadLib(){
   let j;
   try { j = await gh('GET', filePath() + '?ref=' + encodeURIComponent(GH_BRANCH)); }
@@ -1336,19 +1351,19 @@ const needEntry = () => {
   if (!$('entryName').value.trim()){ toast('Give the entry a name first'); $('entryName').focus(); return false; }
   return true;
 };
-function publishNew(name, text, alsoSelect){
+function publishNew(name, text, alsoSelect, form){
   if (shared.some(x => x.name.toLowerCase() === name.toLowerCase()) && !confirm(`A shared entry named "${name}" already exists. Publish another one with the same name?`)) return;
-  const e = { id: 'shared-' + uid(), name, text, updated: Date.now() };
+  const e = withForm({ id: 'shared-' + uid(), name, text, updated: Date.now() }, form);
   adminRun(() => ghCommit(list => [...list, e], 'Add shared entry: ' + name), 'Published to the shared library', () => { if (alsoSelect){ selectedSharedId = e.id; selectedId = null; } });
 }
-$('btnPubNew').addEventListener('click', () => { if (admin && needEntry()) publishNew($('entryName').value.trim(), $('about').value, true); });
+$('btnPubNew').addEventListener('click', () => { if (admin && needEntry()) publishNew($('entryName').value.trim(), $('about').value, true, snapForm()); });
 $('btnPubUpd').addEventListener('click', () => {
   const sel = selShared(); if (!admin || !sel || !needEntry()) return;
-  const name = $('entryName').value.trim(), text = $('about').value;
+  const name = $('entryName').value.trim(), text = $('about').value, form = snapForm();
   adminRun(() => ghCommit(list => {
     const t = list.find(x => x.id === sel.id);
     if (!t){ const er = new Error('That shared entry no longer exists. Publish it as a new entry instead.'); er.user = true; throw er; }
-    t.name = name; t.text = text; t.updated = Date.now(); return list;
+    t.name = name; t.text = text; t.updated = Date.now(); t.form = form; return list;
   }, 'Update shared entry: ' + name), 'Shared entry updated');
 });
 
@@ -1359,21 +1374,22 @@ function entryCard(e, isShared){
   if (e.updated){ const m = document.createElement('span'); m.className = 'meta'; m.textContent = new Date(e.updated).toLocaleDateString(); h.appendChild(m); }
   if (isSel){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'selected'; h.appendChild(b); }
   const p = document.createElement('p'); p.textContent = e.text;
+  const fl = e.form ? document.createElement('p') : null; if (fl){ fl.className = 'hint'; fl.textContent = formLines(e.form).filter(l => !/^(Contact|USAJOBS)/.test(l)).join('  •  '); }
   const row = document.createElement('div'); row.className = 'row';
   const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'small ' + cls; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
-  mk('Use', '', () => { selectedId = isShared ? null : e.id; selectedSharedId = isShared && admin ? e.id : null; $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast('Loaded into the flyer'); });
+  mk('Use', '', () => { selectedId = isShared ? null : e.id; selectedSharedId = isShared && admin ? e.id : null; if (e.form) setForm({ ...e.form, about: e.text }); else $('about').value = e.text; $('entryName').value = e.name; onEdit(); renderLib(); toast(e.form ? 'Loaded the whole entry into the flyer' : 'Loaded into the flyer'); });
   if (isShared){
-    mk('Copy to my library', '', () => { lib.push({ id: uid(), name: e.name, text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Copied to My library'); });
+    mk('Copy to my library', '', () => { lib.push(withForm({ id: uid(), name: e.name, text: e.text, updated: Date.now() }, e.form)); writeLib(); renderLib(); toast('Copied to My library'); });
     if (admin) mk('Delete', 'danger', () => {
       if (!confirm(`Delete "${e.name}" from the SHARED library? This removes it for everyone.`)) return;
       adminRun(() => ghCommit(list => list.filter(x => x.id !== e.id), 'Remove shared entry: ' + e.name), 'Removed from the shared library', () => { if (selectedSharedId === e.id) selectedSharedId = null; });
     });
   } else {
-    if (admin) mk('Publish to shared', '', () => publishNew(e.name, e.text, false));
-    mk('Duplicate', '', () => { lib.push({ id: uid(), name: e.name + ' (copy)', text: e.text, updated: Date.now() }); writeLib(); renderLib(); toast('Entry duplicated'); });
+    if (admin) mk('Publish to shared', '', () => publishNew(e.name, e.text, false, e.form));
+    mk('Duplicate', '', () => { lib.push(withForm({ id: uid(), name: e.name + ' (copy)', text: e.text, updated: Date.now() }, e.form)); writeLib(); renderLib(); toast('Entry duplicated'); });
     mk('Delete', 'danger', () => { if (!confirm(`Delete "${e.name}" from your library?`)) return; lib = lib.filter(x => x.id !== e.id); if (selectedId === e.id) selectedId = null; writeLib(); renderLib(); updateAboutMeta(); });
   }
-  box.append(h, p, row); return box;
+  box.append(h, ...(fl ? [fl] : []), p, row); return box;
 }
 function fillList(el, items, isShared, emptyMsg){
   el.textContent = '';
@@ -1382,7 +1398,7 @@ function fillList(el, items, isShared, emptyMsg){
 }
 function renderLib(){
   const q = $('libSearch').value.trim().toLowerCase();
-  const match = e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q);
+  const match = e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q) || formLines(e.form).join(' ').toLowerCase().includes(q);
   $('libCount').textContent = `(${lib.length} saved)`;
   $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.length})` : '';
   $('btnUpdate').disabled = !selEntry();
@@ -1403,8 +1419,9 @@ function buildSuggestion(){
   const name = $('entryName').value.trim(), text = $('about').value.trim();
   const d = getData(), ctx = [d.posTitle, d.units.join(', '), d.area].filter(Boolean).join(' - ');
   const subject = 'Flyer library suggestion: ' + name;
-  const head = 'Suggested "About the Position" entry for the shared flyer library.\r\n\r\nEntry name: ' + name
-    + (ctx ? '\r\nWritten for flyer: ' + ctx : '') + '\r\n\r\nText:\r\n';
+  const fl = formLines(snapForm());
+  const head = 'Suggested entry for the shared flyer library.\r\n\r\nEntry name: ' + name
+    + (fl.length ? '\r\n\r\n' + fl.join('\r\n') : (ctx ? '\r\nWritten for flyer: ' + ctx : '')) + '\r\n\r\nAbout the Position:\r\n';
   const mk = body => `mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   let url = mk(head + text.replace(/\r?\n/g, '\r\n')), clip = false;
   if (url.length > MAILTO_LIMIT){ clip = true; url = mk(head + '[PASTE THE TEXT HERE - it was copied to your clipboard. Press Ctrl+V.]'); }
@@ -1434,13 +1451,13 @@ $('btnSaveNew').addEventListener('click', () => {
   const name = $('entryName').value.trim(), text = $('about').value.trim();
   if (!text){ toast('Enter the About the Position text first'); $('about').focus(); return; }
   if (!name){ toast('Give the entry a name'); $('entryName').focus(); return; }
-  const e = { id: uid(), name, text: $('about').value, updated: Date.now() };
+  const e = withForm({ id: uid(), name, text: $('about').value, updated: Date.now() }, snapForm());
   lib.push(e); selectedId = e.id; selectedSharedId = null; writeLib(); renderLib(); updateAboutMeta(); toast('Saved to library');
 });
 $('btnUpdate').addEventListener('click', () => {
   const e = selEntry(); if (!e) return;
   const name = $('entryName').value.trim(); if (name) e.name = name;
-  e.text = $('about').value; e.updated = Date.now(); writeLib(); renderLib(); updateAboutMeta(); toast('Entry updated');
+  e.text = $('about').value; e.form = snapForm(); e.updated = Date.now(); writeLib(); renderLib(); updateAboutMeta(); toast('Entry updated');
 });
 $('libSearch').addEventListener('input', renderLib);
 function downloadJson(name, entries){
@@ -1463,9 +1480,9 @@ $('importFile').addEventListener('change', async ev => {
     for (const x of arr){
       if (!x || typeof x.text !== 'string' || typeof x.name !== 'string') continue;
       const ex = lib.find(e => e.id === x.id);
-      if (ex){ if ((x.updated || 0) > ex.updated){ ex.name = x.name; ex.text = x.text; ex.updated = x.updated; updated++; } continue; }
+      if (ex){ if ((x.updated || 0) > ex.updated){ ex.name = x.name; ex.text = x.text; ex.form = cleanForm(x.form) || ex.form; ex.updated = x.updated; updated++; } continue; }
       if (lib.some(e => e.name === x.name && e.text === x.text)) continue;
-      lib.push({ id: x.id || uid(), name: x.name, text: x.text, updated: x.updated || Date.now() }); added++;
+      lib.push(withForm({ id: x.id || uid(), name: x.name, text: x.text, updated: x.updated || Date.now() }, x.form)); added++;
     }
     writeLib(); renderLib(); toast(`Imported: ${added} added, ${updated} updated`);
   } catch (e) { toast('That file is not a valid library export'); }
