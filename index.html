@@ -655,9 +655,19 @@ const SUGGEST_EMAIL = 'dreinecke@blm.gov', SUGGEST_NAME = 'David Reinecke';
 const GH_OWNER = 'DavidReinecke', GH_BRANCH = 'main', GH_FILE = 'library.json', GH_API = 'https://api.github.com';
 const MAILTO_LIMIT = 1800;   // many mail programs (Outlook) truncate longer mailto links
 const UNITS_FILE = 'units.json';
+const DEFAULT_AREA_ID = 'nrga';   // area shown first when nothing has been saved in this browser yet
 // Built-in fallback, used only if units.json cannot be loaded. The live list is edited on the page (Edit areas, units & writeups) and kept in units.json.
-const DEFAULT_AREAS = [{ id: 'nrga', name: 'Northern Rockies Geographic Area',
-  units: ['Geographic Area Office', 'Yellowstone River', 'Triple Divide', 'Northern Plains', 'Bitterroot Range', 'Tongue River', 'Missouri Breaks'].map(n => ({ name: n, writeup: '' })) }];
+const DEFAULT_AREAS = [
+  { id: "ak", name: "Alaska Geographic Area", units: ["Geographic Area Office", "Western Brooks", "Mooseheart", "Yukon Gwinjik", "Upper Tanana", "Alaska Gulf Coast", "Kuskokwim River"] },
+  { id: "ca", name: "California Geographic Area", units: ["Geographic Area Office", "Redwood Cascade", "California Plateau", "Pacific Bay", "Gold Country", "Southern Sierra", "Coastal Mountain", "Eastern Sierra", "Costa Sur"] },
+  { id: "east", name: "Eastern Geographic Area", units: ["Geographic Area Office", "Superior Highlands", "Great Lakes-Midwest", "Appalachian-Coastal"] },
+  { id: "gb", name: "Great Basin Geographic Area", units: ["Geographic Area Office", "Southwestern Idaho", "South Central Idaho", "Southeastern Idaho", "Northwestern Nevada", "Northeastern Nevada", "Southwestern Nevada", "Southeastern Nevada", "Northwestern Utah", "Eastern Utah", "South Central Utah", "Southern Utah"] },
+  { id: "nrga", name: "Northern Rockies Geographic Area", units: ["Geographic Area Office", "Yellowstone River", "Triple Divide", "Northern Plains", "Bitterroot Range", "Tongue River", "Missouri Breaks"] },
+  { id: "nw", name: "Northwest Geographic Area", units: ["Geographic Area Office", "Cascadia", "Nch'i-Wana", "Upper Columbia", "Oregon High Desert", "Blitzen River", "South Central Oregon", "Cascade Rivers", "Coastal Cascades"] },
+  { id: "rm", name: "Rocky Mountain Geographic Area", units: ["Geographic Area Office", "Northwest Wyoming", "Southern Wyoming", "Powder River Basin", "West Missouri River", "East Missouri River", "Arkansas River", "Yampa Valley", "Upper Colorado River", "Southern Rockies"] },
+  { id: "south", name: "Southern Geographic Area", units: ["Geographic Area Office", "Western Oklahoma-Texas Plains", "Eastern Oklahoma Arrowhead", "East Texas Gulf Coast", "Lower Mississippi Valley", "Central Atlantic", "South Atlantic", "South Florida-Caribbean"] },
+  { id: "sw", name: "Southwest Geographic Area", units: ["Geographic Area Office", "Upper Rio Grande", "Penasco Valley", "Central Bosque", "Sky Islands", "Lower Colorado River", "Sonoran Desert", "Western Arizona"] }
+].map(a => ({ id: a.id, name: a.name, units: a.units.map(n => ({ name: n, writeup: '' })) }));
 const COL_X = 45, COL_W = 360;          // left text column
 const BODY_BOTTOM = 642;                // last allowed baseline for body text
 const HELV = 'Helvetica, Arial, "Liberation Sans", sans-serif';
@@ -951,7 +961,7 @@ function buildUnitBoxes(checked){
 function setAreaUnits(areaId, checked){
   const sel = $('areaSel'); sel.textContent = '';
   AREAS.forEach(a => { const o = document.createElement('option'); o.value = a.id; o.textContent = a.name; sel.appendChild(o); });
-  sel.value = AREAS.some(a => a.id === areaId) ? areaId : AREAS[0].id;
+  sel.value = AREAS.some(a => a.id === areaId) ? areaId : (AREAS.some(a => a.id === DEFAULT_AREA_ID) ? DEFAULT_AREA_ID : AREAS[0].id);
   sel.disabled = AREAS.length < 2;
   buildUnitBoxes(checked);
 }

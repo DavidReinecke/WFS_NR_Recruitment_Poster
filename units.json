@@ -3,6 +3,158 @@
   "version": 1,
   "areas": [
     {
+      "id": "ak",
+      "name": "Alaska Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Western Brooks",
+          "writeup": ""
+        },
+        {
+          "name": "Mooseheart",
+          "writeup": ""
+        },
+        {
+          "name": "Yukon Gwinjik",
+          "writeup": ""
+        },
+        {
+          "name": "Upper Tanana",
+          "writeup": ""
+        },
+        {
+          "name": "Alaska Gulf Coast",
+          "writeup": ""
+        },
+        {
+          "name": "Kuskokwim River",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "ca",
+      "name": "California Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Redwood Cascade",
+          "writeup": ""
+        },
+        {
+          "name": "California Plateau",
+          "writeup": ""
+        },
+        {
+          "name": "Pacific Bay",
+          "writeup": ""
+        },
+        {
+          "name": "Gold Country",
+          "writeup": ""
+        },
+        {
+          "name": "Southern Sierra",
+          "writeup": ""
+        },
+        {
+          "name": "Coastal Mountain",
+          "writeup": ""
+        },
+        {
+          "name": "Eastern Sierra",
+          "writeup": ""
+        },
+        {
+          "name": "Costa Sur",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "east",
+      "name": "Eastern Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Superior Highlands",
+          "writeup": ""
+        },
+        {
+          "name": "Great Lakes-Midwest",
+          "writeup": ""
+        },
+        {
+          "name": "Appalachian-Coastal",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "gb",
+      "name": "Great Basin Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Southwestern Idaho",
+          "writeup": ""
+        },
+        {
+          "name": "South Central Idaho",
+          "writeup": ""
+        },
+        {
+          "name": "Southeastern Idaho",
+          "writeup": ""
+        },
+        {
+          "name": "Northwestern Nevada",
+          "writeup": ""
+        },
+        {
+          "name": "Northeastern Nevada",
+          "writeup": ""
+        },
+        {
+          "name": "Southwestern Nevada",
+          "writeup": ""
+        },
+        {
+          "name": "Southeastern Nevada",
+          "writeup": ""
+        },
+        {
+          "name": "Northwestern Utah",
+          "writeup": ""
+        },
+        {
+          "name": "Eastern Utah",
+          "writeup": ""
+        },
+        {
+          "name": "South Central Utah",
+          "writeup": ""
+        },
+        {
+          "name": "Southern Utah",
+          "writeup": ""
+        }
+      ]
+    },
+    {
       "id": "nrga",
       "name": "Northern Rockies Geographic Area",
       "units": [
@@ -32,6 +184,170 @@
         },
         {
           "name": "Missouri Breaks",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "nw",
+      "name": "Northwest Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Cascadia",
+          "writeup": ""
+        },
+        {
+          "name": "Nch'i-Wana",
+          "writeup": ""
+        },
+        {
+          "name": "Upper Columbia",
+          "writeup": ""
+        },
+        {
+          "name": "Oregon High Desert",
+          "writeup": ""
+        },
+        {
+          "name": "Blitzen River",
+          "writeup": ""
+        },
+        {
+          "name": "South Central Oregon",
+          "writeup": ""
+        },
+        {
+          "name": "Cascade Rivers",
+          "writeup": ""
+        },
+        {
+          "name": "Coastal Cascades",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "rm",
+      "name": "Rocky Mountain Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Northwest Wyoming",
+          "writeup": ""
+        },
+        {
+          "name": "Southern Wyoming",
+          "writeup": ""
+        },
+        {
+          "name": "Powder River Basin",
+          "writeup": ""
+        },
+        {
+          "name": "West Missouri River",
+          "writeup": ""
+        },
+        {
+          "name": "East Missouri River",
+          "writeup": ""
+        },
+        {
+          "name": "Arkansas River",
+          "writeup": ""
+        },
+        {
+          "name": "Yampa Valley",
+          "writeup": ""
+        },
+        {
+          "name": "Upper Colorado River",
+          "writeup": ""
+        },
+        {
+          "name": "Southern Rockies",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "south",
+      "name": "Southern Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Western Oklahoma-Texas Plains",
+          "writeup": ""
+        },
+        {
+          "name": "Eastern Oklahoma Arrowhead",
+          "writeup": ""
+        },
+        {
+          "name": "East Texas Gulf Coast",
+          "writeup": ""
+        },
+        {
+          "name": "Lower Mississippi Valley",
+          "writeup": ""
+        },
+        {
+          "name": "Central Atlantic",
+          "writeup": ""
+        },
+        {
+          "name": "South Atlantic",
+          "writeup": ""
+        },
+        {
+          "name": "South Florida-Caribbean",
+          "writeup": ""
+        }
+      ]
+    },
+    {
+      "id": "sw",
+      "name": "Southwest Geographic Area",
+      "units": [
+        {
+          "name": "Geographic Area Office",
+          "writeup": ""
+        },
+        {
+          "name": "Upper Rio Grande",
+          "writeup": ""
+        },
+        {
+          "name": "Penasco Valley",
+          "writeup": ""
+        },
+        {
+          "name": "Central Bosque",
+          "writeup": ""
+        },
+        {
+          "name": "Sky Islands",
+          "writeup": ""
+        },
+        {
+          "name": "Lower Colorado River",
+          "writeup": ""
+        },
+        {
+          "name": "Sonoran Desert",
+          "writeup": ""
+        },
+        {
+          "name": "Western Arizona",
           "writeup": ""
         }
       ]
