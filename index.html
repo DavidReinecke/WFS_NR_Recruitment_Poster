@@ -246,7 +246,7 @@
         <div class="row" style="margin-top:6px"><button class="small" id="edBulkAdd" data-edit>Add these units</button></div></div>
     </div>
     <div class="modal-foot"><span id="edStatus" class="hint"></span>
-      <div class="row"><button class="small" id="edDownload">Download units.json</button><button class="primary" id="edPublish">Publish changes</button></div></div>
+      <div class="row"><button class="small" id="edLocalReset" hidden>Reset my changes</button><button class="small" id="edDownload">Download units.json</button><button class="primary" id="edPublish">Publish changes</button></div></div>
   </div>
 </div>
 <div id="toast" role="status"></div>
@@ -958,7 +958,25 @@ const SAMPLE = {
   units: []
 };
 /* ---------- geographic areas and units ---------- */
-let AREAS = DEFAULT_AREAS, unitsState = 'loading', pendingSel = null;
+let BASE_AREAS = DEFAULT_AREAS, AREAS = DEFAULT_AREAS, unitsState = 'loading', pendingSel = null;
+/* My unit writeups: edits made on this computer are kept in this browser and laid over the shared units list.
+   Shape: { areaId: { writeups: { unitName: text }, added: [{ name, writeup }] } } */
+const LOCAL_UNITS_KEY = 'wfs-units-local-v1';
+let localUnits = {}, localMemOnly = false;
+(function(){ try { const v = JSON.parse(localStorage.getItem(LOCAL_UNITS_KEY) || '{}'); if (v && typeof v === 'object' && !Array.isArray(v)) localUnits = v; } catch (e) {} })();
+function saveLocalUnits(){ try { if (Object.keys(localUnits).length) localStorage.setItem(LOCAL_UNITS_KEY, JSON.stringify(localUnits)); else localStorage.removeItem(LOCAL_UNITS_KEY); return true; } catch (e) { localMemOnly = true; return false; } }
+function withLocal(list){
+  let isAdmin = false; try { isAdmin = !!admin; } catch (e) {}
+  if (isAdmin) return list;          // the library admin works on the shared list itself
+  return list.map(a => {
+    const o = localUnits[a.id]; if (!o) return a;
+    const w = (o.writeups && typeof o.writeups === 'object') ? o.writeups : {};
+    const units = a.units.map(u => typeof w[u.name] === 'string' ? { ...u, writeup: w[u.name] } : u);
+    (Array.isArray(o.added) ? o.added : []).forEach(x => { if (x && typeof x.name === 'string' && x.name.trim() && !units.some(u => u.name.toLowerCase() === x.name.trim().toLowerCase())) units.push({ name: x.name.trim(), writeup: typeof x.writeup === 'string' ? x.writeup : '' }); });
+    return { ...a, units };
+  });
+}
+AREAS = withLocal(BASE_AREAS);
 const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'area';
 function uniqueId(id, ids){ let n = id, i = 2; while (ids.has(n)) n = id + '-' + i++; return n; }
 function normAreas(j){
@@ -995,7 +1013,7 @@ function setAreaUnits(areaId, checked){
 }
 function refreshAreas(list){            // swap in a new area list but keep the person's current choices
   const keep = pendingSel || { areaId: $('areaSel').value, units: [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value) };
-  pendingSel = null; AREAS = list; setAreaUnits(keep.areaId, keep.units || []);
+  pendingSel = null; BASE_AREAS = list; AREAS = withLocal(list); setAreaUnits(keep.areaId, keep.units || []);
 }
 /* ---------- points of contact ---------- */
 const MAX_CONTACTS = 6;
@@ -1526,8 +1544,16 @@ function edRender(){
   $('edModal').querySelectorAll('input[type=text],textarea').forEach(el => { if (!el.closest('#sugBox')) el.readOnly = ro; });
   $('edModal').querySelectorAll('.modal-body button, #edPublish').forEach(el => { if (!el.closest('#sugBox')) el.disabled = ro; });
   if (!ro) $('edPublish').disabled = !!ed.busy;
+  if (ro){          // people who are not the admin can still edit writeups and add units for themselves
+    $('edUnits').querySelectorAll('textarea').forEach(el => { el.readOnly = false; });
+    a.units.forEach((u, i) => { if (u.local){ const n = $('edUnits').querySelector(`input[data-i="${i}"][data-k="name"]`); if (n) n.readOnly = false; const r = $('edUnits').querySelector(`button[data-act="rm"][data-i="${i}"]`); if (r) r.disabled = false; } });
+    ['edUnitAdd', 'edBulkAdd', 'edPublish', 'edDownload'].forEach(id => { $(id).disabled = false; }); $('edBulk').readOnly = false;
+    $('edLocalReset').disabled = false;
+  }
+  $('edPublish').textContent = ro ? 'Save on this computer' : 'Publish changes';
+  $('edLocalReset').hidden = !ro;
   $('edNote').textContent = ro
-    ? 'View only. To propose a writeup, use Suggest a unit writeup below. Only the library admin can publish changes: sign in under Library admin on the page, then reopen this screen. You can still download the current units.json.'
+    ? 'Edit any unit writeup or add your own units here, then choose Save on this computer. Your changes are kept in this browser and used on your flyers; they do not change the shared list for anyone else. To propose a writeup for everyone, use Suggest a unit writeup below.' + (localMemOnly ? ' Note: browser storage is blocked, so changes will not persist.' : '')
     : `Changes publish to ${UNITS_FILE} in ${GH_OWNER}/${admin.repo} (${GH_BRANCH}) and apply to everyone. Nothing is saved until you choose Publish changes.`
       + (unitsState === 'error' || unitsState === 'offline' ? ' Note: units.json could not be loaded from the site, so the built-in list is shown.' : '');
 }
@@ -1572,18 +1598,19 @@ $('sugCopy').addEventListener('click', async ev => {
 });
 
 async function edOpen(){
-  const cur = clone(AREAS); let sha;
+  const cur = clone(admin ? AREAS : AREAS); let sha;
   if (admin){
     try { const r = await ghReadUnits(); sha = r.sha; if (r.areas) { cur.length = 0; cur.push(...r.areas); } }
     catch (e) { toast((e.user ? e.message : ghErr(e)) + ' Showing the list from the site instead.'); }
   }
   const idx = cur.findIndex(a => a.id === $('areaSel').value);
+  if (!admin) cur.forEach(a => { const base = (BASE_AREAS.find(b => b.id === a.id) || { units: [] }).units; a.units.forEach(u => { if (!base.some(b => b.name === u.name)) u.local = true; }); });
   ed = { areas: cur, ai: Math.max(0, idx), sha, ro: !admin, busy: false };
   $('edBulk').value = ''; edStatus(''); $('edModal').hidden = false; edRender();
   $('sugBox').hidden = !ed.ro; if (ed.ro) sugFill();
   $('edClose').focus();
 }
-function edClose(){ if (ed && ed.dirty && !ed.ro && !confirm('Close without publishing? Your changes will be lost.')) return; ed = null; $('edModal').hidden = true; $('unitEdit').focus(); }
+function edClose(){ if (ed && ed.dirty && !confirm(ed.ro ? 'Close without saving? Your changes will be lost.' : 'Close without publishing? Your changes will be lost.')) return; ed = null; $('edModal').hidden = true; $('unitEdit').focus(); }
 function edValidate(){
   const errs = [], names = new Set();
   ed.areas.forEach(a => {
@@ -1624,10 +1651,10 @@ $('edAreaDel').addEventListener('click', () => {
 const edMoveArea = dir => { const j = ed.ai + dir; if (j < 0 || j >= ed.areas.length) return; [ed.areas[ed.ai], ed.areas[j]] = [ed.areas[j], ed.areas[ed.ai]]; ed.ai = j; edMark(); edRender(); };
 $('edAreaUp').addEventListener('click', () => edMoveArea(-1));
 $('edAreaDown').addEventListener('click', () => edMoveArea(1));
-$('edUnitAdd').addEventListener('click', () => { edArea().units.push({ name: '', writeup: '' }); edMark(); edRender(); const f = $('edUnits').querySelectorAll('input[type=text]'); f[f.length - 1].focus(); });
+$('edUnitAdd').addEventListener('click', () => { edArea().units.push({ name: '', writeup: '', local: true }); edMark(); edRender(); const f = $('edUnits').querySelectorAll('input[type=text]'); f[f.length - 1].focus(); });
 $('edBulkAdd').addEventListener('click', () => {
   const have = new Set(edArea().units.map(u => u.name.trim().toLowerCase()));
-  let n = 0; $('edBulk').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean).forEach(s => { if (have.has(s.toLowerCase())) return; have.add(s.toLowerCase()); edArea().units.push({ name: s, writeup: '' }); n++; });
+  let n = 0; $('edBulk').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean).forEach(s => { if (have.has(s.toLowerCase())) return; have.add(s.toLowerCase()); edArea().units.push({ name: s, writeup: '', local: true }); n++; });
   $('edBulk').value = ''; if (n){ edMark(); edRender(); edStatus(`Added ${n} unit${n > 1 ? 's' : ''}.`); } else edStatus('Nothing new to add.');
 });
 $('edDownload').addEventListener('click', () => {
@@ -1635,7 +1662,32 @@ $('edDownload').addEventListener('click', () => {
   const blob = new Blob([unitsJson(edClean())], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = UNITS_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
+function edSaveLocal(){
+  const names = [];
+  ed.areas.forEach(a => { const seen = new Set(); a.units.forEach(u => { const n = u.name.trim(); if (!n) names.push(`A unit in ${a.name} has no name.`); else if (seen.has(n.toLowerCase())) names.push(`${a.name}: two units are named "${n}".`); seen.add(n.toLowerCase()); }); });
+  if (names.length){ edStatus(names[0], true); return; }
+  const norm = t => t.replace(/\r\n?/g, '\n').trim(), out = {};
+  ed.areas.forEach(a => {
+    const base = (BASE_AREAS.find(b => b.id === a.id) || { units: [] }).units, o = { writeups: {}, added: [] };
+    a.units.forEach(u => {
+      const b = base.find(x => x.name === u.name);
+      if (b){ if (norm(u.writeup) !== norm(b.writeup)) o.writeups[u.name] = norm(u.writeup); }
+      else o.added.push({ name: u.name.trim(), writeup: norm(u.writeup) });
+    });
+    if (Object.keys(o.writeups).length || o.added.length) out[a.id] = o;
+  });
+  localUnits = out; const ok = saveLocalUnits();
+  ed.dirty = false; refreshAreas(BASE_AREAS); onEdit();
+  ed.areas = clone(AREAS); ed.areas.forEach(a => { const base = (BASE_AREAS.find(b => b.id === a.id) || { units: [] }).units; a.units.forEach(u => { if (!base.some(b => b.name === u.name)) u.local = true; }); });
+  edRender(); edStatus(ok ? 'Saved on this computer.' : 'Could not save: browser storage is blocked.', !ok); toast(ok ? 'Unit writeups saved on this computer' : 'Browser storage is blocked');
+}
+$('edLocalReset').addEventListener('click', () => {
+  if (!ed || !ed.ro || !confirm('Discard all of your own unit edits on this computer and go back to the shared writeups?')) return;
+  localUnits = {}; saveLocalUnits(); refreshAreas(BASE_AREAS); onEdit();
+  ed.areas = clone(AREAS); ed.dirty = false; edRender(); sugFill(); edStatus('Back to the shared writeups.');
+});
 $('edPublish').addEventListener('click', async () => {
+  if (ed && ed.ro){ edSaveLocal(); return; }
   if (!admin || !ed || ed.busy) return;
   const errs = edValidate(); if (errs.length){ edStatus(errs[0], true); return; }
   const areas = edClean(); ed.busy = true; $('edPublish').disabled = true; edStatus('Publishing...');
