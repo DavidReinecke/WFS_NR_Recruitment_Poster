@@ -810,27 +810,41 @@ function chrome(R, d){
   else R.text(HEADER_LINE1, 120, 71, s1, 'bold', BLACK);
 }
 
-// Optional extra pages: one writeup per selected unit that has one.
-const XP_TOP = 172, XP_BOTTOM = 742, XP_X = 48, XP_W = 516, XP_SZ = 10.5;
+// Optional extra page(s): the area map, then one small box per selected unit that has a writeup.
+// Text is auto-sized so everything stays on ONE page whenever it can (down to XP_MIN pt); only if it cannot does it continue on another page.
+const XP_TOP = 160, XP_BOTTOM = 744, XP_X = 48, XP_W = 516, XP_GAP = 10, XP_MAX = 10, XP_MIN = 6.5;
+const CARD_PL = 14, CARD_PR = 10, CARD_TITLE = 24, CARD_PB = 9;
 function unitPages(d){
   if (!d.writeups.length) return [];
-  const LH = XP_SZ * 1.42, items = [];
-  d.writeups.forEach((w, wi) => {
-    if (wi) items.push({ gap: 12 });
-    items.push({ head: w.name, adv: 22, need: 22 + 2 * LH });
-    w.text.split(/\n\s*\n/).map(p => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean).forEach((p, pi, all) => {
-      wrapRuns([{ t: p, style: 'normal' }], XP_W, XP_SZ).forEach(ln => items.push({ line: ln, adv: LH, need: LH }));
-      if (pi < all.length - 1) items.push({ gap: XP_SZ * 0.75 });
-    });
+  const n = d.writeups.length;
+  const mapH = d.map ? XP_W * d.map.ratio : 0, top1 = XP_TOP + (mapH ? mapH + 14 : 0);
+  const build = size => {
+    const lh = size * 1.32, rows = [];
+    for (let i = 0; i < n; i += 2){
+      const pair = d.writeups.slice(i, i + 2), full = n === 1;
+      const colW = full ? XP_W : (XP_W - XP_GAP) / 2, tW = colW - CARD_PL - CARD_PR;
+      const cards = pair.map((w, k) => {
+        const items = [];
+        w.text.split(/\n\s*\n/).map(p => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean).forEach((p, pi) => {
+          if (pi) items.push({ gap: lh * 0.5 });
+          wrapRuns([{ t: p, style: 'normal', color: '#E4E4E4' }], tW, size).forEach(ln => items.push({ line: ln }));
+        });
+        const bodyH = items.reduce((a, it) => a + (it.gap || lh), 0);
+        return { name: w.name, items, x: XP_X + k * (colW + XP_GAP), w: colW, bodyH };
+      });
+      rows.push({ cards, h: CARD_TITLE + Math.max(...cards.map(c => c.bodyH)) + CARD_PB });
+    }
+    return { rows, lh, size };
+  };
+  const stack = (rows, y0) => rows.reduce((a, r) => a + r.h, 0) + XP_GAP * (rows.length - 1);
+  let size = XP_MAX, L = build(size);
+  while (stack(L.rows) > XP_BOTTOM - top1 && size > XP_MIN){ size -= 0.25; L = build(size); }
+  const pages = []; let cur = [], y = top1;
+  L.rows.forEach(r => {
+    if (cur.length && y + r.h > XP_BOTTOM){ pages.push({ rows: cur, size: L.size, lh: L.lh }); cur = []; y = XP_TOP; }
+    cur.push({ ...r, y }); y += r.h + XP_GAP;
   });
-  const mapH = d.map ? XP_W * d.map.ratio : 0;
-  const pages = []; let cur = [], y = XP_TOP + (mapH ? mapH + 16 : 0);
-  for (const it of items){
-    if (it.gap){ if (cur.length) y += it.gap; continue; }
-    if (y + it.need > XP_BOTTOM && cur.length){ pages.push(cur); cur = []; y = XP_TOP; }
-    cur.push({ ...it, y: y + (it.head ? 14 : XP_SZ) }); y += it.adv;
-  }
-  if (cur.length) pages.push(cur);
+  if (cur.length) pages.push({ rows: cur, size: L.size, lh: L.lh });
   return pages;
 }
 function drawExtra(R, d, page, n, total){
@@ -839,12 +853,13 @@ function drawExtra(R, d, page, n, total){
   let ts = 40; while (tw(ttl, ts, 'bold') > XP_W && ts > 20) ts -= 0.5;
   R.text(ttl, COL_X, 141, ts, 'bold', WHITE);
   if (n === 2 && d.map){ const h = XP_W * d.map.ratio; R.image(d.map.data, XP_X, XP_TOP, XP_W, h); R.strokeRect(XP_X, XP_TOP, XP_W, h, ORANGE, 1.25); }
-  page.forEach(it => {
-    if (it.head){
-      let hs = 14; while (tw(it.head, hs, 'bold') > XP_W && hs > 9) hs -= 0.5;
-      R.text(it.head, XP_X, it.y, hs, 'bold', ORANGE); R.line(XP_X, it.y + 5, XP_X + XP_W, it.y + 5, ORANGE, 0.8);
-    } else drawLine(R, it.line, XP_X, it.y, XP_SZ);
-  });
+  page.rows.forEach(r => r.cards.forEach(c => {
+    R.rect(c.x, r.y, c.w, r.h, '#151515'); R.strokeRect(c.x, r.y, c.w, r.h, '#2C2C2C', 0.75); R.rect(c.x, r.y, 4, r.h, ORANGE);
+    let hs = 11; while (tw(c.name, hs, 'bold') > c.w - CARD_PL - CARD_PR && hs > 8) hs -= 0.5;
+    R.text(c.name, c.x + CARD_PL, r.y + 17, hs, 'bold', WHITE);
+    let y = r.y + CARD_TITLE + 6 + page.size * 0.9 - 6;
+    c.items.forEach(it => { if (it.gap){ y += it.gap; return; } drawLine(R, it.line, c.x + CARD_PL, y, page.size); y += page.lh; });
+  }));
   if (total > 1){ const s = `Page ${n} of ${total}`, w = tw(s, 9, 'normal'); R.text(s, PAGE_W / 2 - w / 2, 757, 9, 'normal', ORANGE_LT); }
 }
 
