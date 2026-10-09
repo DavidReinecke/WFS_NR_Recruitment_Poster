@@ -21,8 +21,8 @@
   main{display:grid;grid-template-columns:minmax(340px,1fr) minmax(320px,600px);gap:22px;padding:22px;max-width:1300px;margin:0 auto;align-items:start}
   @media(max-width:900px){main{grid-template-columns:1fr;padding:14px}}
   @media(max-width:560px){header.top{padding:8px 12px;gap:10px}header.top h1{font-size:15px}header.top h1 small{display:none}header.top img{height:38px}header.top button{padding:7px 10px}}
-  section.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
-  section.card h2{margin:0 0 12px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--orange)}
+  section.card,details.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  section.card h2,#libCard h2{margin:0 0 12px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--orange)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:560px){.grid2{grid-template-columns:1fr}}
   label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
@@ -80,6 +80,8 @@
   #status.ok{color:var(--muted)}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#222;border:1px solid var(--orange);color:#fff;padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw}
   #toast.show{opacity:1}
+  #libCard>summary{list-style:none;margin:0;cursor:pointer;color:inherit;font-size:inherit} #libCard>summary::-webkit-details-marker{display:none} #libCard>summary::before{content:'\25B8';color:var(--orange);margin-right:8px;display:inline-block;transition:transform .15s} #libCard[open]>summary::before{transform:rotate(90deg)}
+  .req{color:var(--orange)} .missing{border-color:var(--danger)!important;outline:1px solid var(--danger)}
   details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:10px}
   footer{max-width:1300px;margin:0 auto;padding:0 22px 30px;color:#777;font-size:12.5px}
 </style>
@@ -94,66 +96,9 @@
 
 <main>
   <div id="formCol">
-    <section class="card">
-      <h2>Flyer version</h2>
-      <div class="f"><label for="tplSel">Photo layout</label><select id="tplSel"><option>Loading...</option></select></div>
-      <p class="hint" id="tplDesc" style="margin:0"></p>
-      <p class="hint" id="tplNote" style="margin:6px 0 0;color:var(--orange-l)"></p>
-    </section>
-
-    <section class="card">
-      <h2>Position</h2>
-      <div class="f"><label for="areaSel">Geographic area</label><select id="areaSel"></select></div>
-      <div class="f"><label>Unit(s) shown under the flyer heading</label>
-        <div id="unitBox" class="units"></div>
-        <div class="hint" style="margin-top:6px"><a href="#" id="unitAll">Select all</a> &middot; <a href="#" id="unitNone">Clear</a> &middot; <a href="#" id="unitEdit">Edit areas, units &amp; writeups</a></div>
-        <div class="hint" id="unitNote" style="margin-top:4px;color:var(--orange-l)"></div></div>
-      <div class="f"><label for="posTitle">Position Title</label><input type="text" id="posTitle" autocomplete="off"></div>
-      <div class="grid2">
-        <div class="f"><label for="opmTitle">OPM Position Title</label><input type="text" id="opmTitle" autocomplete="off"></div>
-        <div class="f"><label for="payGrade">Pay Grade</label><input type="text" id="payGrade" autocomplete="off"></div>
-      </div>
-      <div class="f"><label for="dutyLoc">Duty Location(s)</label><input type="text" id="dutyLoc" autocomplete="off"></div>
-    </section>
-
-    <section class="card">
-      <h2>Announcement</h2>
-      <div class="grid2">
-        <div class="f"><label for="annNum">Announcement Number</label><input type="text" id="annNum" autocomplete="off"></div>
-        <div class="f"><label for="applyBy">Apply by</label><input type="date" id="applyBy"></div>
-      </div>
-      <div class="f"><label for="usajobsUrl">USAJOBS announcement link</label><input type="url" id="usajobsUrl" placeholder="https://www.usajobs.gov/job/..." autocomplete="off"></div>
-      <div class="check"><input type="checkbox" id="reloc"><label for="reloc">Relocation expenses may be authorized</label></div>
-    </section>
-
-    <section class="card">
-      <h2>About the Position</h2>
-      <div class="f">
-        <label for="about">Text for the flyer (leave a blank line between paragraphs)</label>
-        <textarea id="about"></textarea>
-        <div class="counter" id="aboutCount"></div>
-      </div>
-
-      <div class="hint" style="margin-bottom:8px">Saving keeps everything on the form (Position Title, OPM Position Title, Pay Grade, Duty Locations, announcement number, link, close date, contacts, area and units) along with the About text, so you can reload the whole flyer later.</div>
-      <div class="f"><label for="entryName">Library entry name</label><input type="text" id="entryName" placeholder="e.g. District FMO - Eastern MT/Dakotas" autocomplete="off"></div>
-      <div class="row">
-        <button id="btnSaveNew">Save as new entry</button>
-        <button id="btnUpdate" disabled>Update selected entry</button>
-        <span id="dirty" class="badge" hidden>edited since loading</span>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button id="btnSuggest">Suggest for shared library</button>
-      </div>
-      <p class="hint" style="margin:6px 0 0">Emails this entry to <span id="suggestName"></span> for approval. Nothing is published until it is added to the shared library. <a href="#" id="linkCopySuggest">No email program? Copy it as text instead.</a></p>
-      <div id="adminActions" hidden style="margin-top:12px;padding:10px 12px;border:1px dashed var(--orange-d);border-radius:8px">
-        <div class="hint" style="margin-bottom:8px;color:var(--orange-l)">Library admin: these buttons commit directly to the shared library.</div>
-        <div class="row">
-          <button id="btnPubNew" class="primary small">Publish as new shared entry</button>
-          <button id="btnPubUpd" class="small" disabled>Update selected shared entry</button>
-        </div>
-      </div>
-
-      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0 12px">
+    <details class="card" id="libCard">
+      <summary><h2 style="display:inline;margin:0">Library</h2> <span id="libSummary" class="hint" style="margin-left:8px"></span></summary>
+      <p class="hint" style="margin:8px 0 12px">Pick a shared or saved entry and choose Use to fill in the About text and position details. To save or suggest an entry, use the buttons under About the Position.</p>
       <div class="f"><input type="search" id="libSearch" placeholder="Search shared and saved entries"></div>
 
       <div class="row" style="justify-content:space-between">
@@ -189,6 +134,67 @@
       </div>
       <div class="lib-list" id="libList"></div>
       <p class="hint" style="margin:10px 0 0">Shared entries are managed by the library owner. My library is stored in this browser only. To propose one of your entries for everyone, use Suggest for shared library.</p>
+    </details>
+
+    <section class="card">
+      <h2>Flyer version</h2>
+      <div class="f"><label for="tplSel">Photo layout</label><select id="tplSel"><option>Loading...</option></select></div>
+      <p class="hint" id="tplDesc" style="margin:0"></p>
+      <p class="hint" id="tplNote" style="margin:6px 0 0;color:var(--orange-l)"></p>
+    </section>
+
+    <section class="card">
+      <h2>Position</h2>
+      <div class="f"><label for="areaSel">Geographic area</label><select id="areaSel"></select></div>
+      <div class="f"><label>Unit(s) shown under the flyer heading</label>
+        <div id="unitBox" class="units"></div>
+        <div class="hint" style="margin-top:6px"><a href="#" id="unitAll">Select all</a> &middot; <a href="#" id="unitNone">Clear</a> &middot; <a href="#" id="unitEdit">Edit areas, units &amp; writeups</a></div>
+        <div class="hint" id="unitNote" style="margin-top:4px;color:var(--orange-l)"></div></div>
+      <div class="f"><label for="posTitle">Position Title <span class="req" title="Required">*</span></label><input type="text" id="posTitle" autocomplete="off"></div>
+      <div class="grid2">
+        <div class="f"><label for="opmTitle">OPM Position Title <span class="req" title="Required">*</span></label><input type="text" id="opmTitle" autocomplete="off"></div>
+        <div class="f"><label for="payGrade">Pay Grade <span class="req" title="Required">*</span></label><input type="text" id="payGrade" autocomplete="off"></div>
+      </div>
+      <div class="f"><label for="dutyLoc">Duty Location(s) <span class="req" title="Required">*</span></label><input type="text" id="dutyLoc" autocomplete="off"></div>
+    </section>
+
+    <section class="card">
+      <h2>Announcement</h2>
+      <div class="grid2">
+        <div class="f"><label for="annNum">Announcement Number <span class="req" title="Required">*</span></label><input type="text" id="annNum" autocomplete="off"></div>
+        <div class="f"><label for="applyBy">Apply by <span class="req" title="Required">*</span></label><input type="date" id="applyBy"></div>
+      </div>
+      <div class="f"><label for="usajobsUrl">USAJOBS announcement link <span class="req" title="Required">*</span></label><input type="url" id="usajobsUrl" placeholder="https://www.usajobs.gov/job/..." autocomplete="off"></div>
+      <div class="check"><input type="checkbox" id="reloc"><label for="reloc">Relocation expenses may be authorized</label></div>
+    </section>
+
+    <section class="card">
+      <h2>About the Position</h2>
+      <div class="f">
+        <label for="about">Text for the flyer (leave a blank line between paragraphs)</label>
+        <textarea id="about"></textarea>
+        <div class="counter" id="aboutCount"></div>
+      </div>
+
+      <div class="hint" style="margin-bottom:8px">Saving keeps everything on the form (Position Title, OPM Position Title, Pay Grade, Duty Locations, announcement number, link, close date, contacts, area and units) along with the About text, so you can reload the whole flyer later.</div>
+      <div class="f"><label for="entryName">Library entry name</label><input type="text" id="entryName" placeholder="e.g. District FMO - Eastern MT/Dakotas" autocomplete="off"></div>
+      <div class="row">
+        <button id="btnSaveNew">Save as new entry</button>
+        <button id="btnUpdate" disabled>Update selected entry</button>
+        <span id="dirty" class="badge" hidden>edited since loading</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnSuggest">Suggest for shared library</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0">Emails this entry to <span id="suggestName"></span> for approval. Nothing is published until it is added to the shared library. <a href="#" id="linkCopySuggest">No email program? Copy it as text instead.</a></p>
+      <div id="adminActions" hidden style="margin-top:12px;padding:10px 12px;border:1px dashed var(--orange-d);border-radius:8px">
+        <div class="hint" style="margin-bottom:8px;color:var(--orange-l)">Library admin: these buttons commit directly to the shared library.</div>
+        <div class="row">
+          <button id="btnPubNew" class="primary small">Publish as new shared entry</button>
+          <button id="btnPubUpd" class="small" disabled>Update selected shared entry</button>
+        </div>
+      </div>
+
     </section>
 
     <section class="card">
@@ -1222,7 +1228,13 @@ $('tplSel').addEventListener('change', () => {
 });
 
 /* ---------- PDF ---------- */
+const REQUIRED = [['posTitle', 'Position Title'], ['opmTitle', 'OPM Position Title'], ['payGrade', 'Pay Grade'], ['dutyLoc', 'Duty Location(s)'], ['annNum', 'Announcement Number'], ['applyBy', 'Apply by date'], ['usajobsUrl', 'USAJOBS link']];
+function missingRequired(){ return REQUIRED.filter(([id]) => !$(id).value.trim()); }
+function markMissing(list){ REQUIRED.forEach(([id]) => $(id).classList.toggle('missing', list.some(x => x[0] === id))); }
+IDS.forEach(id => $(id).addEventListener('input', () => { if ($(id).classList.contains('missing') && $(id).value.trim()) $(id).classList.remove('missing'); }));
 async function downloadPdf(){
+  const miss = missingRequired(); markMissing(miss);
+  if (miss.length){ $(miss[0][0]).focus(); toast('Fill in before downloading: ' + miss.map(x => x[1]).join(', ')); const st = $('status'); st.className = 'warn'; st.textContent = 'Required before download: ' + miss.map(x => x[1]).join(', ') + '.'; return; }
   await tplPromise;                      // wait until the selected version's photos are ready
   let d = getData();
   const ar = curArea(); if (ar.map && !d.map){ for (let i = 0; i < 40 && (mapCache.get(ar.map) || {}).pending; i++) await new Promise(r => setTimeout(r, 100)); d = getData(); }
@@ -1418,6 +1430,7 @@ function renderLib(){
   const q = $('libSearch').value.trim().toLowerCase();
   const match = e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q) || formLines(e.form).join(' ').toLowerCase().includes(q);
   $('libCount').textContent = `(${lib.length} saved)`;
+  $('libSummary').textContent = (sharedState === 'ok' ? shared.length + ' shared' : 'shared library loading') + ' \u00B7 ' + lib.length + ' saved';
   $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.length})` : '';
   $('btnUpdate').disabled = !selEntry();
   $('btnPubNew').disabled = busy; $('btnPubUpd').disabled = busy || !selShared();
