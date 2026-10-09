@@ -58,6 +58,118 @@
           }
         ]
       }
+    },
+    {
+      "id": "shared-tpl-engine-captain-gw-08",
+      "name": "Engine Captain - GW-08 - Template",
+      "text": "This is an excellent opportunity to lead an engine crew with the U.S. Wildland Fire Service in the Northern Rockies Geographic Area. As Engine Captain, you will supervise and train a crew, manage the engine and its equipment, and serve as the leader on the ground for initial attack, extended attack, prescribed fire, and other fire management projects. You will be responsible for the safety and professional development of your crew while building strong working relationships with interagency partners.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Engine Captain",
+        "opmTitle": "Supervisory Wildland Firefighter",
+        "payGrade": "GW-0456-08",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-assistant-engine-captain-gw-05-06-07",
+      "name": "Assistant Engine Captain - GW-05/06/07 - Template",
+      "text": "This is a great opportunity to take the next step in your fire career as an Assistant Engine Captain with the U.S. Wildland Fire Service. You will serve as the second-in-command of an engine crew, lead crew members on wildfire suppression, prescribed fire, and fuels projects, and step into the Engine Captain role in their absence. Along the way you will gain experience in leadership, tactical decision-making, and engine operations, with mentoring and training to prepare you for future leadership roles.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Assistant Engine Captain",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-05/06/07",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-wildland-firefighter-multi-program-gw-04-05-06",
+      "name": "Wildland Firefighter (multi-program) - GW-04/05/06 - Template",
+      "text": "Join the U.S. Wildland Fire Service as a Wildland Firefighter on an engine, helitack, wildland fire module, veterans, or fuels crew. This position offers hands-on work in wildfire response, prescribed fire, and hazardous fuels reduction. You will build your skills through on-the-job experience, formal training, and the support of experienced fire professionals. Positions may be filled at the GW-04, GW-05, or GW-06 level depending on qualifications, and the work offers a clear path to advancement within the Wildland Fire Service.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Wildland Firefighter",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-04/05/06",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-wildland-firefighter-entry-developmental-gw-03-04-05",
+      "name": "Wildland Firefighter (entry/developmental) - GW-03/04/05 - Template",
+      "text": "Start or grow your career in wildland fire with the U.S. Wildland Fire Service. As a Wildland Firefighter on an engine, helitack, wildland fire module, veterans, or fuels crew, you will take part in wildfire suppression, prescribed fire, and fuels management while learning from experienced fire professionals. This is a developmental position with structured training, on-the-job experience, and opportunities to build the qualifications you need to advance. Positions may be filled at the GW-03, GW-04, or GW-05 level depending on qualifications.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Wildland Firefighter",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-03/04/05",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-fire-dispatching-gw-05-06-07",
+      "name": "Fire Dispatching - GW-05/06/07 - Template",
+      "text": "Support wildland fire response from the heart of the operation as a dispatcher with the U.S. Wildland Fire Service. Dispatchers coordinate the ordering, tracking, and mobilization of firefighters, aircraft, equipment, and supplies, and serve as a vital communications link between field personnel and the agencies that support them. You will work closely with interagency partners across the Northern Rockies Geographic Area to deliver safe, timely, and coordinated emergency response. Positions may be filled at the GW-05, GW-06, or GW-07 level depending on qualifications.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Fire Dispatcher",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-05/06/07",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-assistant-helicopter-crew-supervisor-gw-08",
+      "name": "Assistant Helicopter Crew Supervisor - GW-08 - Template",
+      "text": "This is an outstanding opportunity to help lead a helitack program with the U.S. Wildland Fire Service. As Assistant Helicopter Crew Supervisor, you will supervise and train the helitack crew, support the Helicopter Crew Supervisor in managing daily operations, and help deliver safe and effective aviation support for initial attack, extended attack, and prescribed fire. You will play a key role in aviation safety, crew readiness, and the professional development of the next generation of helitack leaders.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Assistant Helicopter Crew Supervisor",
+        "opmTitle": "Supervisory Wildland Firefighter",
+        "payGrade": "GW-0456-08",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-helitack-squad-boss-gw-05-06-07",
+      "name": "Helitack Squad Boss - GW-05/06/07 - Template",
+      "text": "Take on a leadership role on a helitack crew with the U.S. Wildland Fire Service. As a Helitack Squad Boss, you will lead a squad during helicopter operations, including fire response, aerial resource support, and prescribed fire, while helping maintain a high standard of safety and readiness. This position is a strong step toward higher levels of aviation and fire leadership, with training and mentoring from experienced helitack professionals. Positions may be filled at the GW-05, GW-06, or GW-07 level depending on qualifications.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Helitack Squad Boss",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-05/06/07",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
+    },
+    {
+      "id": "shared-tpl-fuels-squad-boss-gw-05-06-07",
+      "name": "Fuels Squad Boss - GW-05/06/07 - Template",
+      "text": "Lead the work that makes landscapes and communities safer as a Fuels Squad Boss with the U.S. Wildland Fire Service. You will supervise a squad carrying out hazardous fuels reduction, prescribed fire, and mechanical and hand treatments, while also supporting wildfire response when needed. This position offers hands-on leadership experience, training in fuels and prescribed fire operations, and a path to advancement within the fuels program. Positions may be filled at the GW-05, GW-06, or GW-07 level depending on qualifications.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1791566997641,
+      "form": {
+        "posTitle": "Fuels Squad Boss",
+        "opmTitle": "Wildland Firefighter",
+        "payGrade": "GW-0456-05/06/07",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      }
     }
   ]
 }
