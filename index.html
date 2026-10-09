@@ -99,10 +99,11 @@
     <details class="card" id="libCard">
       <summary><h2 style="display:inline;margin:0">Library</h2> <span id="libSummary" class="hint" style="margin-left:8px"></span></summary>
       <p class="hint" style="margin:8px 0 12px">Pick a shared or saved entry and choose Use to fill in the About text and position details. To save or suggest an entry, use the buttons under About the Position.</p>
+      <div class="f"><label for="libArea">Geographic area (each area has its own shared library)</label><select id="libArea"></select></div>
       <div class="f"><input type="search" id="libSearch" placeholder="Search shared and saved entries"></div>
 
       <div class="row" style="justify-content:space-between">
-        <strong style="font-size:14px">Shared library <span id="sharedCount" style="color:#777;font-weight:400"></span></strong>
+        <strong style="font-size:14px">Shared library &ndash; <span id="sharedAreaName"></span> <span id="sharedCount" style="color:#777;font-weight:400"></span></strong>
       </div>
       <p class="hint" id="sharedNote" style="margin:6px 0 0"></p>
       <div class="lib-list" id="sharedList" style="max-height:300px"></div>
@@ -964,7 +965,7 @@ const SAMPLE = {
   units: []
 };
 /* ---------- geographic areas and units ---------- */
-let BASE_AREAS = DEFAULT_AREAS, AREAS = DEFAULT_AREAS, unitsState = 'loading', pendingSel = null;
+let libReady = false, BASE_AREAS = DEFAULT_AREAS, AREAS = DEFAULT_AREAS, unitsState = 'loading', pendingSel = null;
 /* My unit writeups: edits made on this computer are kept in this browser and laid over the shared units list.
    Shape: { areaId: { writeups: { unitName: text }, added: [{ name, writeup }] } } */
 const LOCAL_UNITS_KEY = 'wfs-units-local-v1';
@@ -1016,6 +1017,7 @@ function setAreaUnits(areaId, checked){
   sel.value = AREAS.some(a => a.id === areaId) ? areaId : (AREAS.some(a => a.id === DEFAULT_AREA_ID) ? DEFAULT_AREA_ID : AREAS[0].id);
   sel.disabled = AREAS.length < 2;
   buildUnitBoxes(checked);
+  if (typeof renderLib === 'function' && libReady) renderLib();
 }
 function refreshAreas(list){            // swap in a new area list but keep the person's current choices
   const keep = pendingSel || { areaId: $('areaSel').value, units: [...document.querySelectorAll('#unitBox input:checked')].map(cb => cb.value) };
@@ -1321,7 +1323,7 @@ const b64enc = str => { let bin = ''; new TextEncoder().encode(str).forEach(b =>
 const b64dec = str => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/\s/g, '')), c => c.charCodeAt(0)));
 const filePath = (f = GH_FILE) => `/repos/${GH_OWNER}/${admin.repo}/contents/${f}`;
 const normEntries = arr => arr.filter(e => e && typeof e.text === 'string' && typeof e.name === 'string')
-  .map(e => withForm({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, updated: e.updated || 0 }, e.form));
+  .map(e => withForm({ id: e.id || ('s-' + e.name), name: e.name, text: e.text, areaId: (typeof e.areaId === 'string' && e.areaId) || (e.form && e.form.areaId) || DEFAULT_AREA_ID, updated: e.updated || 0 }, e.form));
 async function ghReadLib(){
   let j;
   try { j = await gh('GET', filePath() + '?ref=' + encodeURIComponent(GH_BRANCH)); }
@@ -1382,8 +1384,8 @@ const needEntry = () => {
   return true;
 };
 function publishNew(name, text, alsoSelect, form){
-  if (shared.some(x => x.name.toLowerCase() === name.toLowerCase()) && !confirm(`A shared entry named "${name}" already exists. Publish another one with the same name?`)) return;
-  const e = withForm({ id: 'shared-' + uid(), name, text, updated: Date.now() }, form);
+  if (shared.some(x => x.areaId === curArea().id && x.name.toLowerCase() === name.toLowerCase()) && !confirm(`A shared entry named "${name}" already exists in this area's library. Publish another one with the same name?`)) return;
+  const e = withForm({ id: 'shared-' + uid(), name, text, areaId: curArea().id, updated: Date.now() }, form);
   adminRun(() => ghCommit(list => [...list, e], 'Add shared entry: ' + name), 'Published to the shared library', () => { if (alsoSelect){ selectedSharedId = e.id; selectedId = null; } });
 }
 $('btnPubNew').addEventListener('click', () => { if (admin && needEntry()) publishNew($('entryName').value.trim(), $('about').value, true, snapForm()); });
@@ -1429,9 +1431,11 @@ function fillList(el, items, isShared, emptyMsg){
 function renderLib(){
   const q = $('libSearch').value.trim().toLowerCase();
   const match = e => !q || e.name.toLowerCase().includes(q) || e.text.toLowerCase().includes(q) || formLines(e.form).join(' ').toLowerCase().includes(q);
+  const la = $('libArea'); if (la.options.length !== AREAS.length || [...la.options].some((o, i) => o.value !== AREAS[i].id)){ la.textContent = ''; AREAS.forEach(a => { const o = document.createElement('option'); o.value = a.id; o.textContent = a.name; la.appendChild(o); }); }
+  la.value = $('areaSel').value; $('sharedAreaName').textContent = curArea().name;
   $('libCount').textContent = `(${lib.length} saved)`;
-  $('libSummary').textContent = (sharedState === 'ok' ? shared.length + ' shared' : 'shared library loading') + ' \u00B7 ' + lib.length + ' saved';
-  $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.length})` : '';
+  $('libSummary').textContent = (sharedState === 'ok' ? shared.filter(e => e.areaId === curArea().id).length + ' shared' : 'shared library loading') + ' \u00B7 ' + lib.length + ' saved';
+  $('sharedCount').textContent = sharedState === 'ok' ? `(${shared.filter(e => e.areaId === curArea().id).length})` : '';
   $('btnUpdate').disabled = !selEntry();
   $('btnPubNew').disabled = busy; $('btnPubUpd').disabled = busy || !selShared();
   const notes = {
@@ -1441,8 +1445,9 @@ function renderLib(){
     ok: ''
   };
   $('sharedNote').textContent = notes[sharedState];
-  const sItems = shared.filter(match).sort((a, b) => a.name.localeCompare(b.name));
-  fillList($('sharedList'), sItems, true, sharedState === 'ok' ? (shared.length ? 'No shared entries match your search.' : 'The shared library is empty.') : '');
+  const sItems = shared.filter(e => e.areaId === curArea().id).filter(match).sort((a, b) => a.name.localeCompare(b.name));
+  const inArea = shared.filter(e => e.areaId === curArea().id).length;
+  fillList($('sharedList'), sItems, true, sharedState === 'ok' ? (inArea ? 'No shared entries match your search.' : `The shared library for ${curArea().name} is empty.`) : '');
   const mItems = lib.filter(match).sort((a, b) => b.updated - a.updated);
   fillList($('libList'), mItems, false, lib.length ? 'No entries match your search.' : 'No saved entries yet.');
 }
@@ -1451,7 +1456,7 @@ function buildSuggestion(){
   const d = getData(), ctx = [d.posTitle, d.units.join(', '), d.area].filter(Boolean).join(' - ');
   const subject = 'Flyer library suggestion: ' + name;
   const fl = formLines(snapForm());
-  const head = 'Suggested entry for the shared flyer library.\r\n\r\nEntry name: ' + name
+  const head = 'Suggested entry for the shared flyer library for ' + curArea().name + '.\r\n\r\nEntry name: ' + name
     + (fl.length ? '\r\n\r\n' + fl.join('\r\n') : (ctx ? '\r\nWritten for flyer: ' + ctx : '')) + '\r\n\r\nAbout the Position:\r\n';
   const mk = body => `mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   let url = mk(head + text.replace(/\r?\n/g, '\r\n')), clip = false;
@@ -1724,7 +1729,8 @@ $('edPublish').addEventListener('click', async () => {
 IDS.forEach(id => $(id).addEventListener('input', onEdit));
 $('reloc').addEventListener('change', onEdit);
 $('unitBox').addEventListener('change', onEdit);
-$('areaSel').addEventListener('change', () => { buildUnitBoxes([]); onEdit(); });
+$('areaSel').addEventListener('change', () => { buildUnitBoxes([]); onEdit(); renderLib(); });
+$('libArea').addEventListener('change', () => { $('areaSel').value = $('libArea').value; $('areaSel').dispatchEvent(new Event('change')); });
 $('contacts').addEventListener('input', onEdit);
 $('btnAddContact').addEventListener('click', () => {
   const l = readContacts(); if (l.length >= MAX_CONTACTS) return;
@@ -1744,7 +1750,7 @@ $('btnClear').addEventListener('click', () => { if (!confirm('Clear every field 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 120); });
 
 $('hdrLogo').src = ASSETS.logo;
-initLib(); try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+initLib(); libReady = true; try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
 admin = readAdmin(); $('ghRepo').value = (admin && admin.repo) || guessRepo(); setForm({}); applyAdmin(); updateAboutMeta(); render(); loadShared(); loadUnits();
 Promise.all([ASSETS.logo, ...curSlots.map(sl => sl.url)].map(loadImg)).then(render);
 tplPromise = loadTemplates();
