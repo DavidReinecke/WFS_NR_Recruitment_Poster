@@ -6,8 +6,9 @@ The **Flyer version** dropdown on the page is built from `manifest.json` in this
 
 1. Upload your photos to `templates/images/` (JPG or PNG; roughly 1000 px or wider on the long side looks best).
 2. Open `templates/manifest.json` and copy one of the existing entries inside `"templates"`. Give it a new, unique `"id"` and a `"name"` (the name is what shows in the dropdown).
-3. Pick a `"layout"` and list the photos in the matching order.
-4. Commit. The new version appears in the dropdown a minute or two later.
+3. Add `"areaId"` (for example `"nrga"`) so the version shows up for that geographic area. Area ids are in `units.json`. A version with no `areaId` is treated as Northern Rockies. An area with no versions uses the built-in Classic layout.
+4. Pick a `"layout"` and list the photos in the matching order.
+5. Commit. The new version appears in the dropdown a minute or two later.
 
 Photo file names are relative to the `templates/` folder (for example `images/elk.jpg`).
 

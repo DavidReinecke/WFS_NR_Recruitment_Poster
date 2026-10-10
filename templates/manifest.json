@@ -3,33 +3,71 @@
     {
       "id": "classic",
       "name": "Classic (9 photos)",
+      "areaId": "nrga",
       "description": "Five photos down the right side and four across the bottom.",
       "layout": "standard",
       "images": [
-        { "src": "images/wildfire-smoke.jpg", "focus": [0.5, 0.55] },
+        {
+          "src": "images/wildfire-smoke.jpg",
+          "focus": [
+            0.5,
+            0.55
+          ]
+        },
         "images/tent-prairie.jpg",
         "images/elk.jpg",
-        { "src": "images/prescribed-burn.jpg", "focus": [0.5, 0.35] },
+        {
+          "src": "images/prescribed-burn.jpg",
+          "focus": [
+            0.5,
+            0.35
+          ]
+        },
         "images/river-fishing.jpg",
         "images/hiker-badlands.jpg",
         "images/river-bluffs.jpg",
-        { "src": "images/c130-ramp.jpg", "focus": [0.45, 0.5] },
+        {
+          "src": "images/c130-ramp.jpg",
+          "focus": [
+            0.45,
+            0.5
+          ]
+        },
         "images/mule-deer.jpg"
       ]
     },
     {
       "id": "units-map",
       "name": "Units map (bottom left)",
+      "areaId": "nrga",
       "description": "Five photos down the right side, the Northern Rockies units map across the bottom left, and two photos at the bottom right.",
       "layout": "wide-left",
       "images": [
-        { "src": "images/wildfire-smoke.jpg", "focus": [0.5, 0.55] },
+        {
+          "src": "images/wildfire-smoke.jpg",
+          "focus": [
+            0.5,
+            0.55
+          ]
+        },
         "images/tent-prairie.jpg",
         "images/elk.jpg",
-        { "src": "images/prescribed-burn.jpg", "focus": [0.5, 0.35] },
+        {
+          "src": "images/prescribed-burn.jpg",
+          "focus": [
+            0.5,
+            0.35
+          ]
+        },
         "images/river-fishing.jpg",
         "images/units-map-wide.jpg",
-        { "src": "images/c130-ramp.jpg", "focus": [0.45, 0.5] },
+        {
+          "src": "images/c130-ramp.jpg",
+          "focus": [
+            0.45,
+            0.5
+          ]
+        },
         "images/mule-deer.jpg"
       ]
     }

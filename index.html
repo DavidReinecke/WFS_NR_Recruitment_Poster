@@ -1136,7 +1136,7 @@ const LAYOUTS = {
 // Built-in copy of the Classic version, used when templates/manifest.json cannot be loaded.
 const BUILTIN = { id: 'builtin', name: 'Classic (built in)', description: '',
   slots: LAYOUTS.standard.map((g, i) => ({ ...g, data: i < 5 ? ASSETS.right[i] : ASSETS.bottom[i - 5] })) };
-let TEMPLATES = [BUILTIN], tplBase = location.href, tplToken = 0, tplPromise = Promise.resolve();
+let ALL_TEMPLATES = [], TEMPLATES = [BUILTIN], tplBase = location.href, tplToken = 0, tplPromise = Promise.resolve();
 let curTpl = BUILTIN, curSlots = BUILTIN.slots.map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h, url: g.data }));
 
 const okSrc = v => typeof v === 'string' && v !== '' && !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(v);   // same-site paths only
@@ -1159,7 +1159,7 @@ function normTemplate(t){
   }
   if (!slots.length) return null;
   const bb = typeof t.bodyBottom === 'number' && t.bodyBottom > 300 && t.bodyBottom < 780 ? t.bodyBottom : undefined;
-  return { id: t.id, name: t.name, description: typeof t.description === 'string' ? t.description : '', bodyBottom: bb, slots };
+  return { id: t.id, name: t.name, areaId: (typeof t.areaId === 'string' && t.areaId) || DEFAULT_AREA_ID, description: typeof t.description === 'string' ? t.description : '', bodyBottom: bb, slots };
 }
 const rawCache = new Map(), cropCache = new Map();
 function loadRaw(url){
@@ -1215,14 +1215,21 @@ async function loadTemplates(){
       if (!list.length) note = 'templates/manifest.json has no usable versions, so only the built-in version is shown.';
     } catch (e) { note = 'Could not load templates/manifest.json, so only the built-in version is shown.'; }
   } else note = 'More versions load only when the page is opened from its web address.';
-  TEMPLATES = list.length ? list : [BUILTIN];
+  ALL_TEMPLATES = list; tplLoadNote = note;
+  await refreshTemplates();
+}
+// Each geographic area has its own flyer versions. An area with none yet uses the built-in Classic layout.
+let tplLoadNote = '';
+async function refreshTemplates(){
+  const aid = curArea().id, mine = ALL_TEMPLATES.filter(t => t.areaId === aid);
+  TEMPLATES = mine.length ? mine : [BUILTIN];
   const sel = $('tplSel'); sel.textContent = '';
   TEMPLATES.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); });
   let saved = null; try { saved = localStorage.getItem(TPL_KEY); } catch (e) {}
   sel.value = TEMPLATES.some(t => t.id === saved) ? saved : TEMPLATES[0].id;
   sel.disabled = TEMPLATES.length < 2;
-  $('tplNote').textContent = note;
-  await applyTemplate(sel.value);
+  $('tplNote').textContent = tplLoadNote || (mine.length || !ALL_TEMPLATES.length ? '' : `No flyer versions have been set up for ${curArea().name} yet, so the standard Classic layout is used.`);
+  tplPromise = applyTemplate(sel.value); await tplPromise;
 }
 $('tplSel').addEventListener('change', () => {
   const id = $('tplSel').value; try { localStorage.setItem(TPL_KEY, id); } catch (e) {}
@@ -1729,7 +1736,7 @@ $('edPublish').addEventListener('click', async () => {
 IDS.forEach(id => $(id).addEventListener('input', onEdit));
 $('reloc').addEventListener('change', onEdit);
 $('unitBox').addEventListener('change', onEdit);
-$('areaSel').addEventListener('change', () => { buildUnitBoxes([]); onEdit(); renderLib(); });
+$('areaSel').addEventListener('change', () => { buildUnitBoxes([]); onEdit(); renderLib(); if (typeof refreshTemplates === 'function' && ALL_TEMPLATES.length) refreshTemplates(); });
 $('libArea').addEventListener('change', () => { $('areaSel').value = $('libArea').value; $('areaSel').dispatchEvent(new Event('change')); });
 $('contacts').addEventListener('input', onEdit);
 $('btnAddContact').addEventListener('click', () => {
