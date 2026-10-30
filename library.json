@@ -182,6 +182,21 @@
         "units": []
       },
       "areaId": "nrga"
+    },
+    {
+      "id": "shared-tpl-geographic-area-facilities-asset-specialist-gs-12",
+      "name": "Geographic Area Facilities and Asset Specialist - GS-12 - Template",
+      "text": "Serve as the Geographic Area Facilities and Asset Specialist for the U.S. Wildland Fire Service in the Northern Rockies and be the go-to technical authority for the facilities our fire personnel work and live in. You will act as the Wildland Fire Service's representative to the owning Bureaus, coordinating facility operations, urgent repairs, and improvement projects; developing and prioritizing the Geographic Area's deferred maintenance and capital improvement needs; and serving as a Contracting Officer's Representative on facility service, maintenance, and construction actions.\n\nYou will also lead facility security and CASHE/EHS compliance coordination, manage space records that drive operational cost reimbursement to the Bureaus, and maintain accurate facility and asset data in Bureau and Departmental systems. This role reports to the Assistant Chief of Support Services, offers a high degree of independence, and provides a rare opportunity to help build new processes and agreements at a pivotal time for wildland fire management. Frequent travel to fire facilities and airbases across the Geographic Area is required.\n\nThe Northern Rockies offer a strong quality of life with close-knit communities, a culture of collaboration, and abundant outdoor recreation, such as hiking, hunting, fishing, and skiing, with close access to expansive public lands.",
+      "updated": 1793374670540,
+      "form": {
+        "posTitle": "Geographic Area Facilities and Asset Specialist",
+        "opmTitle": "Facility Operations Specialist",
+        "payGrade": "GS-1640-12",
+        "reloc": false,
+        "areaId": "nrga",
+        "units": []
+      },
+      "areaId": "nrga"
     }
   ]
 }
