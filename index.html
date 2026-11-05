@@ -166,7 +166,7 @@
         <div class="f"><label for="annNum">Announcement Number <span class="req" title="Required">*</span></label><input type="text" id="annNum" autocomplete="off"></div>
         <div class="f"><label for="applyBy">Apply by <span class="req" title="Required">*</span></label><input type="date" id="applyBy"></div>
       </div>
-      <div class="f"><label for="usajobsUrl">USAJOBS announcement link <span class="req" title="Required">*</span></label><input type="url" id="usajobsUrl" placeholder="https://www.usajobs.gov/job/..." autocomplete="off"></div>
+      <div class="f"><label for="usajobsUrl">USAJOBS announcement link <span class="req" id="usajobsReq" title="Required">*</span></label><input type="url" id="usajobsUrl" placeholder="https://www.usajobs.gov/job/..." autocomplete="off"></div>
       <div class="check"><input type="checkbox" id="reloc"><label for="reloc">Relocation expenses may be authorized</label></div>
     </section>
 
@@ -1059,7 +1059,7 @@ function contactsFrom(v){
   return [{}];
 }
 function setForm(v){
-  IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc; renderContacts(contactsFrom(v));
+  IDS.forEach(id => $(id).value = v[id] || ''); $('reloc').checked = !!v.reloc; $('usajobsReq').hidden = $('empType').value === 'Temporary Detail'; renderContacts(contactsFrom(v));
   const u = Array.isArray(v.units) ? v.units : (v.unitName ? [v.unitName] : []);   // unitName = older saved drafts
   setAreaUnits(v.areaId, u);
 }
@@ -1240,8 +1240,10 @@ $('tplSel').addEventListener('change', () => {
 
 /* ---------- PDF ---------- */
 const REQUIRED = [['posTitle', 'Position Title'], ['opmTitle', 'OPM Position Title'], ['payGrade', 'Pay Grade'], ['dutyLoc', 'Duty Location(s)'], ['annNum', 'Announcement Number'], ['applyBy', 'Apply by date'], ['usajobsUrl', 'USAJOBS link']];
-function missingRequired(){ return REQUIRED.filter(([id]) => !$(id).value.trim()); }
+const reqList = () => $('empType').value === 'Temporary Detail' ? REQUIRED.filter(([id]) => id !== 'usajobsUrl') : REQUIRED;   // a Temporary Detail has no USAJOBS announcement
+function missingRequired(){ return reqList().filter(([id]) => !$(id).value.trim()); }
 function markMissing(list){ REQUIRED.forEach(([id]) => $(id).classList.toggle('missing', list.some(x => x[0] === id))); }
+$('empType').addEventListener('change', () => { const det = $('empType').value === 'Temporary Detail'; $('usajobsReq').hidden = det; if (det) $('usajobsUrl').classList.remove('missing'); });
 IDS.forEach(id => $(id).addEventListener('input', () => { if ($(id).classList.contains('missing') && $(id).value.trim()) $(id).classList.remove('missing'); }));
 async function downloadPdf(){
   const miss = missingRequired(); markMissing(miss);
