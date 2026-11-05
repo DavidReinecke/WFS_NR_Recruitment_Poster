@@ -156,6 +156,7 @@
         <div class="f"><label for="opmTitle">OPM Position Title <span class="req" title="Required">*</span></label><input type="text" id="opmTitle" autocomplete="off"></div>
         <div class="f"><label for="payGrade">Pay Grade <span class="req" title="Required">*</span></label><input type="text" id="payGrade" autocomplete="off"></div>
       </div>
+      <div class="f"><label for="empType">Employment Type</label><select id="empType"><option value="">Select...</option><option>Permanent Full Time</option><option>Temporary Seasonal</option><option>Career Seasonal</option><option>Temporary Detail</option></select></div>
       <div class="f"><label for="dutyLoc">Duty Location(s) <span class="req" title="Required">*</span></label><input type="text" id="dutyLoc" autocomplete="off"></div>
     </section>
 
@@ -893,6 +894,7 @@ function draw(R, d){
     if (d.payGrade) runs.push({ t: d.payGrade, style: 'bold' });
     centerRuns(R, runs, cx, y, 13.5, COL_W); y += 17;
   }
+  if (d.empType){ centerRuns(R, [{ t: 'Employment Type: ', style: 'normal' }, { t: d.empType, style: 'bold' }], cx, y, 10.5, COL_W); y += 15; }
   if (d.dutyLoc){ centerRuns(R, [{ t: 'Duty Location: ' + d.dutyLoc, style: 'italic' }], cx, y, 10.5, COL_W); y += 15; }
   if (d.annNum){ centerRuns(R, [{ t: 'Announcement Number: ', style: 'normal' }, { t: d.annNum, style: 'bold' }], cx, y, 10.5, COL_W); y += 15; }
   if (d.url){ centerRuns(R, [{ t: 'USAJOBS Announcement Link', style: 'italic', color: ORANGE_LT, underline: true, link: d.url }], cx, y, 10.5, COL_W); y += 17; }
@@ -952,13 +954,13 @@ function pdfR(doc){
 }
 
 /* ---------- form state ---------- */
-const IDS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy','about'];
+const IDS = ['posTitle','opmTitle','payGrade','empType','dutyLoc','annNum','usajobsUrl','applyBy','about'];
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'wfs-flyer-draft-v1';
 
 const SAMPLE_ABOUT = "This is an exciting opportunity to serve as the District Fire Management Officer and help shape the future of wildland fire management for the Bureau of Land Management and the U.S. Wildland Fire Service in Eastern Montana and the Dakotas. This role offers the chance to lead and influence a dynamic fire program during a period of transformation, while working alongside an exceptional and dedicated group of fire professionals. The District FMO plays a key leadership role in fostering and strengthening excellent interagency relationships, working closely with federal, state, tribal, and local partners to deliver effective, coordinated fire management across shared landscapes.\n\nMontana and the Dakotas offer an exceptional quality of life with strong community connections, a culture of collaboration, and unparalleled landscapes, along with abundant outdoor recreational opportunities — such as hiking, hunting, fishing, and skiing — and close proximity and access to expansive public lands.";
 const SAMPLE = {
-  posTitle: 'District Fire Management Officer', opmTitle: 'Supervisory Wildland Firefighter', payGrade: 'GW-0456-13',
+  posTitle: 'District Fire Management Officer', opmTitle: 'Supervisory Wildland Firefighter', payGrade: 'GW-0456-13', empType: 'Permanent Full Time',
   dutyLoc: 'Billings OR Miles City, Montana', annNum: 'FADHA-26-12861490-CMP', usajobsUrl: 'https://www.usajobs.gov/',
   applyBy: '2026-01-21', reloc: true, about: SAMPLE_ABOUT,
   contacts: [{ name: 'Aaron Thompson', title: 'State Fire Management Officer', phone: '(307) 330-6743', email: 'althompson@blm.gov' }],
@@ -1090,7 +1092,7 @@ function getData(){
     areaId: area.id, area: clean(area.name), header: 'USWFS ' + clean(area.name),
     map: (() => { const m = /^https?:$/.test(location.protocol) ? areaMap(area.map) : null; return m && m.data ? m : null; })(),
     writeups: picked.filter(u => clean(u.writeup).trim()).map(u => ({ name: clean(u.name), text: clean(u.writeup).trim() })),
-    posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
+    posTitle: c('posTitle'), opmTitle: c('opmTitle'), payGrade: c('payGrade'), empType: c('empType'), dutyLoc: c('dutyLoc'), annNum: c('annNum'),
     url, applyBy: fmtDate(r.applyBy), reloc: r.reloc, about: clean(r.about).trim(),
     contacts: (r.contacts || []).map(x => {
       const one = v => clean(v).replace(/\s*\n\s*/g, ' ').trim();
@@ -1268,14 +1270,14 @@ function readLib(){ try { const v = JSON.parse(localStorage.getItem(LIB_KEY) || 
 function writeLib(){ try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); return true; } catch (e) { if (!memoryOnly){ memoryOnly = true; toast('Browser storage is blocked, so the library will not persist. Use Export JSON to keep it.'); } return false; } }
 function initLib(){ lib = readLib(); }
 /* A library entry keeps the About text plus a snapshot of every other field on the form (titles, pay grade, duty locations, announcement number, link, close date, relocation, contacts, area and units). */
-const FORM_KEYS = ['posTitle','opmTitle','payGrade','dutyLoc','annNum','usajobsUrl','applyBy'];
+const FORM_KEYS = ['posTitle','opmTitle','payGrade','empType','dutyLoc','annNum','usajobsUrl','applyBy'];
 const snapForm = () => { const r = rawForm(); return { ...Object.fromEntries(FORM_KEYS.map(k => [k, r[k] || ''])), reloc: !!r.reloc, areaId: r.areaId, units: r.units, contacts: (r.contacts || []).filter(c => Object.values(c).some(v => (v || '').trim())) }; };
 const cleanForm = f => (f && typeof f === 'object' && !Array.isArray(f)) ? f : undefined;
 const withForm = (o, f) => { f = cleanForm(f); if (f) o.form = f; return o; };
 const formLines = f => {
   f = cleanForm(f); if (!f) return [];
   const L = [], add = (k, v) => { if (v && String(v).trim()) L.push(k + ': ' + String(v).trim()); };
-  add('Position Title', f.posTitle); add('OPM Position Title', f.opmTitle); add('Pay Grade', f.payGrade); add('Duty Locations', f.dutyLoc);
+  add('Position Title', f.posTitle); add('OPM Position Title', f.opmTitle); add('Pay Grade', f.payGrade); add('Employment Type', f.empType); add('Duty Locations', f.dutyLoc);
   add('Announcement Number', f.annNum); add('USAJOBS Link', f.usajobsUrl); add('Applications Close', f.applyBy);
   if (f.reloc) L.push('Relocation incentives: yes');
   const a = (AREAS.find(x => x.id === f.areaId) || {}).name; add('Geographic Area', a);
